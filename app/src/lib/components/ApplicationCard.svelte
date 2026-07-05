@@ -83,18 +83,6 @@
               </tr>
             {/if}
           {/each}
-          {#if defaults.documents}
-            <tr>
-              <td class="info-key">Documents:</td>
-              <td class="info-val doc-links">
-                {#each Object.entries(defaults.documents) as [docKey, docVal]}
-                  {#if docVal && typeof docVal === 'string'}
-                    <button class="doc-link" onclick={() => showDocPopup = docVal}>{docLabels[docKey] || docKey}</button>
-                  {/if}
-                {/each}
-              </td>
-            </tr>
-          {/if}
           {#if rejectionReason}
             <tr>
               <td class="info-key reason-key">{reasonLabel}</td>

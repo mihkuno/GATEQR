@@ -1,5 +1,7 @@
 venv/
 node_modules/
+static/
+!static/robots.txt
 
 node_modules
 

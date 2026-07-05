@@ -39,6 +39,7 @@
  */
 declare module '$env/static/private' {
 	export const DATABASE_URL: string;
+	export const GATE_API_KEY: string;
 	export const JWT_SECRET: string;
 	export const OSA_EMAIL: string;
 	export const QR_EXPIRY_MONTHS: string;
@@ -47,6 +48,7 @@ declare module '$env/static/private' {
 	export const SMTP_PASS: string;
 	export const SMTP_PORT: string;
 	export const SMTP_USER: string;
+	export const PYTHON_BASIC_REPL: string;
 	export const USER: string;
 	export const npm_config_user_agent: string;
 	export const GIT_ASKPASS: string;
@@ -91,6 +93,7 @@ declare module '$env/static/private' {
 	export const npm_config_frozen_lockfile: string;
 	export const DISPLAY: string;
 	export const LANG: string;
+	export const PYTHONSTARTUP: string;
 	export const VSCODE_INJECTION: string;
 	export const LS_COLORS: string;
 	export const FNM_DIR: string;
@@ -206,6 +209,7 @@ declare module '$env/static/public' {
 declare module '$env/dynamic/private' {
 	export const env: {
 		DATABASE_URL: string;
+		GATE_API_KEY: string;
 		JWT_SECRET: string;
 		OSA_EMAIL: string;
 		QR_EXPIRY_MONTHS: string;
@@ -214,6 +218,7 @@ declare module '$env/dynamic/private' {
 		SMTP_PASS: string;
 		SMTP_PORT: string;
 		SMTP_USER: string;
+		PYTHON_BASIC_REPL: string;
 		USER: string;
 		npm_config_user_agent: string;
 		GIT_ASKPASS: string;
@@ -258,6 +263,7 @@ declare module '$env/dynamic/private' {
 		npm_config_frozen_lockfile: string;
 		DISPLAY: string;
 		LANG: string;
+		PYTHONSTARTUP: string;
 		VSCODE_INJECTION: string;
 		LS_COLORS: string;
 		FNM_DIR: string;

@@ -20,6 +20,24 @@
 	"/api/departments": [
 		"src/routes/api/departments/+server.ts"
 	],
+	"/api/gate/entry": [
+		"src/routes/api/gate/entry/+server.ts"
+	],
+	"/api/gate/exit": [
+		"src/routes/api/gate/exit/+server.ts"
+	],
+	"/api/gate/logs": [
+		"src/routes/api/gate/logs/+server.ts"
+	],
+	"/api/gate/lookup": [
+		"src/routes/api/gate/lookup/+server.ts"
+	],
+	"/api/gate/manual": [
+		"src/routes/api/gate/manual/+server.ts"
+	],
+	"/api/gate/stats": [
+		"src/routes/api/gate/stats/+server.ts"
+	],
 	"/api/osa/applications": [
 		"src/routes/api/osa/applications/+server.ts"
 	],
