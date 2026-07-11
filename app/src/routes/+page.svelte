@@ -673,10 +673,35 @@
   }
 
   .agree-checkbox input[type="checkbox"] {
-    width: auto;
-    accent-color: var(--maroon);
-    margin-top: 2px;
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--text-muted);
+    border-radius: 4px;
+    background: var(--surface);
+    margin-top: 1px;
     flex-shrink: 0;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s ease;
+  }
+
+  .agree-checkbox input[type="checkbox"]:checked {
+    background: var(--maroon);
+    border-color: var(--maroon);
+  }
+
+  .agree-checkbox input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 5.5px;
+    top: 1.5px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2.5px 2.5px 0;
+    transform: rotate(45deg);
   }
 
   /* ─── Nav Buttons ─── */
