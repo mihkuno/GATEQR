@@ -295,7 +295,8 @@
         <p>IN WITNESS HEREOF THE UNDERSIGNED HAS AFFIXED HIS/HER SIGNATURE THIS <u>{dayStr}</u> DAY OF <u>{month.toUpperCase()}</u> <u>{year}</u>.</p>
       </div>
       <label class="agree-checkbox">
-        <input type="checkbox" bind:checked={agreedToPark} />
+        <input type="checkbox" class="cb-real" bind:checked={agreedToPark} />
+        <span class="cb-box"></span>
         <span>I agree to the terms and conditions of this agreement.</span>
       </label>
 
@@ -349,7 +350,8 @@
       </div>
 
       <label class="agree-checkbox">
-        <input type="checkbox" bind:checked={agreedToRegulations} />
+        <input type="checkbox" class="cb-real" bind:checked={agreedToRegulations} />
+        <span class="cb-box"></span>
         <span>I have read and fully understood the policies and regulations.</span>
       </label>
     {/if}
@@ -672,31 +674,41 @@
     line-height: 1.5;
   }
 
-  .agree-checkbox input[type="checkbox"] {
-    appearance: none;
-    -webkit-appearance: none;
+  .agree-checkbox .cb-real {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .cb-box {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 20px;
     height: 20px;
+    min-width: 20px;
     border: 2px solid var(--text-muted);
     border-radius: 4px;
     background: var(--surface);
     margin-top: 1px;
     flex-shrink: 0;
     cursor: pointer;
-    position: relative;
     transition: all 0.2s ease;
+    position: relative;
   }
 
-  .agree-checkbox input[type="checkbox"]:checked {
+  .cb-real:checked + .cb-box {
     background: var(--maroon);
     border-color: var(--maroon);
   }
 
-  .agree-checkbox input[type="checkbox"]:checked::after {
+  .cb-real:checked + .cb-box::after {
     content: '';
     position: absolute;
-    left: 5.5px;
-    top: 1.5px;
+    left: 5px;
+    top: 1px;
     width: 5px;
     height: 10px;
     border: solid white;
