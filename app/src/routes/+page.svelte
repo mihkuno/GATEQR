@@ -16,6 +16,55 @@
     let idno = $state('');
     let loading = $state(false);
 
+    let agreedToPark = $state(false);
+    let agreedToRegulations = $state(false);
+    let hasOpenedLink = $state(false);
+
+    const today = new Date();
+    const day = today.getDate();
+    const month = today.toLocaleString('default', { month: 'long' });
+    const year = today.getFullYear();
+    const daySuffix = (d: number) => {
+        if (d > 3 && d < 21) return 'TH';
+        switch (d % 10) {
+            case 1:  return "ST";
+            case 2:  return "ND";
+            case 3:  return "RD";
+            default: return "TH";
+        }
+    };
+    const dayStr = `${day}${daySuffix(day)}`;
+
+    let canProceed = $derived((() => {
+        if (section === 1) {
+            if (!fname || !lname || !vehicle || !plate || !role) return false;
+            if (['student', 'employee'].includes(role) && (!dept || !idno)) return false;
+            return true;
+        }
+        if (section === 2) {
+            if (!files.or.file || !files.cr.file) return false;
+            if (role !== 'visitor' || owner === 'no') {
+                if (!files.license.file) return false;
+            }
+            if (role !== 'visitor') {
+                if (['student', 'employee'].includes(role) && !files.id.file) return false;
+                if (!files.enrollment.file) return false;
+                if (owner === 'yes' && !files.letter.file) return false;
+            }
+            if (role === 'visitor' && owner === 'yes') {
+                if (!files.license.file || !files.letter.file) return false;
+            }
+            return true;
+        }
+        if (section === 3) {
+            return agreedToPark;
+        }
+        if (section === 4) {
+            return agreedToRegulations && hasOpenedLink;
+        }
+        return false;
+    })());
+
     type FileState = { file: File | null; url: string | null }
 
     let files = $state({
@@ -230,7 +279,7 @@
     {:else if section === 3}
       <div class="agreement-body">
         <p><strong>KNOWN ALL MEN BY THESE PRESENTS:</strong></p>
-        <p>That this agreement is signed by <u>name here</u>, in favor of Liceo de Cagayan University.</p>
+        <p>That this agreement is signed by <u>{fname} {lname}</u>, in favor of Liceo de Cagayan University.</p>
         <p>WHEREAS, the President of Liceo de Cagayan has granted permission to allow the owner of the vehicle to park on the school premises.</p>
         <p>WHEREAS, the undersigned has agreed to the parking rules and regulations of Liceo de Cagayan University.</p>
         <p>Now, therefore, in view of the foregoing, the undersigned have agreed to the following rules and regulations.</p>
@@ -243,10 +292,10 @@
           <li>That the school is not liable for whatever damage may happen to the vehicle while inside the University premises;</li>
           <li>That the undersigned is obligated to renew this agreement every semester;</li>
         </ol>
-        <p>IN WITNESS HEREOF THE UNDERSIGNED HAS AFFIXED HIS/HER SIGNATURE THIS <u>day here</u> DAY OF <u>month here</u> <u>year here</u>.</p>
+        <p>IN WITNESS HEREOF THE UNDERSIGNED HAS AFFIXED HIS/HER SIGNATURE THIS <u>{dayStr}</u> DAY OF <u>{month.toUpperCase()}</u> <u>{year}</u>.</p>
       </div>
       <label class="agree-checkbox">
-        <input type="checkbox" />
+        <input type="checkbox" bind:checked={agreedToPark} />
         <span>I agree to the terms and conditions of this agreement.</span>
       </label>
 
@@ -284,8 +333,23 @@
           <li>For concerns, the Office of Student Affairs and the LICEO U Administration shall be the venue to resolve the issue.</li>
         </ol>
       </div>
+
+      <div class="link-section">
+        <p>Please download, print, and fill up the physical copy of the Agreement to Park and Parking Regulations:</p>
+        <a 
+          href="https://docs.google.com/document/d/1y8OGxeORcqTE9JZ8m-82jM_6oQSrdtSyqrAEf2kaLAM/edit?tab=t.0" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          class="doc-link-btn"
+          onclick={() => hasOpenedLink = true}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          Open Agreement Document
+        </a>
+      </div>
+
       <label class="agree-checkbox">
-        <input type="checkbox" />
+        <input type="checkbox" bind:checked={agreedToRegulations} />
         <span>I have read and fully understood the policies and regulations.</span>
       </label>
     {/if}
@@ -300,12 +364,12 @@
       </button>
     {/if}
     {#if section < totalSections}
-      <button class="nav-btn btn-next" onclick={() => section++}>
+      <button class="nav-btn btn-next" onclick={() => section++} disabled={!canProceed}>
         Next
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </button>
     {:else}
-      <button class="nav-btn btn-submit" onclick={handleSubmit} disabled={loading}>
+      <button class="nav-btn btn-submit" onclick={handleSubmit} disabled={loading || !canProceed}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         {loading ? 'Submitting...' : 'Submit Application'}
       </button>
@@ -666,6 +730,51 @@
   }
 
   .btn-submit:hover { box-shadow: 0 6px 20px rgba(107,26,42,0.4); }
+
+  .btn-next:disabled,
+  .btn-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  .link-section {
+    padding: 1rem;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .link-section p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .doc-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--maroon);
+    color: #fff;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    transition: opacity 0.15s, transform 0.15s;
+    box-shadow: 0 2px 8px rgba(107,26,42,0.25);
+  }
+
+  .doc-link-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+  }
 
   .form-footer {
     text-align: center;
