@@ -3,7 +3,7 @@ import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 import type { RowDataPacket } from 'mysql2';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, cookies }) => {
     if (!locals.user || locals.user.role !== 'osa') {
         throw redirect(303, '/login');
     }
@@ -17,7 +17,10 @@ export const load: PageServerLoad = async ({ locals }) => {
             ORDER BY r.created_at DESC
         `);
 
+        const activeTab = cookies.get('osa_active_tab') || 'validation';
+
         return {
+            activeTab,
             applications: rows.map(app => ({
                 ...app,
                 created_at: app.created_at?.toISOString(),

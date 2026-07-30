@@ -29,7 +29,10 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
         }
 
         // ── Registered entries ──────────────────────────────────────────────
-        const regRows: RowDataPacket[] = typeFilter === 'guest' ? [] : await (async () => {
+        const hasRegRoles = roleFilter === 'all' || roleFilter.split(',').some(r => r !== 'guest');
+        const regRoleCsv = roleFilter !== 'all' ? roleFilter.split(',').filter(r => r !== 'guest').join(',') : '';
+
+        const regRows: RowDataPacket[] = (typeFilter === 'guest' || !hasRegRoles) ? [] : await (async () => {
             const [rows] = await db.query<RowDataPacket[]>(`
                 SELECT 
                     e.auto_id, 
@@ -49,13 +52,14 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
                 FROM entrylog e
                 JOIN registration r ON e.registration_id = r.auto_id
                 WHERE (DATE(e.\`in\`) = ${dateFilter} OR (e.\`out\` IS NOT NULL AND DATE(e.\`out\`) = ${dateFilter}))
-                ${roleFilter !== 'all' ? 'AND r.role = ?' : ''}
-            `, [...dateParams, ...dateParams, ...(roleFilter !== 'all' ? [roleFilter] : [])]);
+                ${regRoleCsv ? 'AND FIND_IN_SET(r.role, ?)' : ''}
+            `, [...dateParams, ...dateParams, ...(regRoleCsv ? [regRoleCsv] : [])]);
             return rows;
         })();
 
         // ── Guest entries ────────────────────────────────────────────────────
-        const guestRows: RowDataPacket[] = (typeFilter === 'registered' || roleFilter !== 'all') ? [] : await (async () => {
+        const isGuestIncluded = roleFilter === 'all' || roleFilter.split(',').includes('guest');
+        const guestRows: RowDataPacket[] = (typeFilter === 'registered' || !isGuestIncluded) ? [] : await (async () => {
             const [rows] = await db.query<RowDataPacket[]>(`
                 SELECT 
                     auto_id, 
@@ -165,13 +169,17 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
         logs.sort((a, b) => b.timestamp - a.timestamp);
 
         // ── Search filter (after merge & sort) ──────────────────────────────
-        const filtered = search
-            ? logs.filter(l =>
-                l.name.toLowerCase().includes(search) ||
-                (l.plate && l.plate.toLowerCase().includes(search)) ||
-                (l.make && l.make.toLowerCase().includes(search))
-            )
-            : logs;
+        let filtered = logs;
+        if (search) {
+            const terms = search.split(/\s+/).filter(Boolean);
+            filtered = logs.filter(l => {
+                const fullString = Object.values(l)
+                    .filter(val => val !== null && val !== undefined)
+                    .map(val => String(val).toLowerCase())
+                    .join(' ');
+                return terms.every(term => fullString.includes(term));
+            });
+        }
 
         // ── Paginate ─────────────────────────────────────────────────────────
         const total = filtered.length;

@@ -85,10 +85,30 @@
     let selectedDate  = $state(new Date().toISOString().split('T')[0]);
     let searchQuery   = $state('');
     let boundFilter   = $state('all');
-    let roleFilter    = $state('all');
+    
+    const allRoles = ['student', 'employee', 'visitor', 'concessionaire', 'guest'];
+    let selectedRoles = $state([...allRoles]);
+    let roleDropdownOpen = $state(false);
+
     let loading       = $state(false);
 
     let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function toggleRole(role: string) {
+        if (selectedRoles.includes(role)) {
+            selectedRoles = selectedRoles.filter(r => r !== role);
+        } else {
+            selectedRoles = [...selectedRoles, role];
+        }
+        currentPage = 1; fetchLogs();
+    }
+    
+    function getRoleDropdownLabel() {
+        if (selectedRoles.length === allRoles.length) return 'All Roles';
+        if (selectedRoles.length === 0) return 'No Roles';
+        if (selectedRoles.length === 1) return selectedRoles[0].charAt(0).toUpperCase() + selectedRoles[0].slice(1);
+        return `${selectedRoles.length} Roles`;
+    }
 
     function onSearchInput() {
         if (searchTimer) clearTimeout(searchTimer);
@@ -100,17 +120,13 @@
     async function fetchLogs() {
         loading = true;
         try {
-            // When a specific role (including 'guest') is selected, derive the type filter automatically.
-            // Guest entries have type='guest'; everything else is type='registered'.
-            const derivedType = roleFilter === 'guest' ? 'guest'
-                              : roleFilter !== 'all'   ? 'registered'
-                              : 'all';
+            const roleParam = selectedRoles.length === allRoles.length ? 'all' : selectedRoles.join(',');
             const params = new URLSearchParams({
                 date:   selectedDate,
                 search: searchQuery,
-                type:   derivedType,
+                type:   'all',
                 bound:  boundFilter,
-                role:   roleFilter === 'guest' ? 'all' : roleFilter,
+                role:   roleParam,
                 page:   String(currentPage),
                 limit:  String(pageSize),
             });
@@ -137,6 +153,20 @@
     // ── Hourly chart helpers ─────────────────────────────────────────────────
     const hourlyMax = $derived(Math.max(...hourlyChart, 1));
     const peakHour  = $derived(hourlyChart.indexOf(Math.max(...hourlyChart)));
+
+    function clickOutside(node: HTMLElement, callback: () => void) {
+        const handleClick = (e: MouseEvent) => {
+            if (node && !node.contains(e.target as Node) && !e.defaultPrevented) {
+                callback();
+            }
+        };
+        document.addEventListener('click', handleClick, true);
+        return {
+            destroy() {
+                document.removeEventListener('click', handleClick, true);
+            }
+        };
+    }
 </script>
 
 <svelte:head>
@@ -267,15 +297,21 @@
       </div>
 
       <div class="filters">
-        <select bind:value={roleFilter} onchange={onFilterChange} class="filter-select">
-          <option value="all">All Users</option>
-          <option value="student">Student</option>
-          <option value="employee">Employee</option>
-          <option value="visitor">Visitor</option>
-          <option value="concessionaire">Concessionaire</option>
-          <option disabled>──────────</option>
-          <option value="guest">Guest</option>
-        </select>
+        <div class="dropdown-wrap" use:clickOutside={() => roleDropdownOpen = false}>
+          <button class="filter-select dropdown-btn" onclick={() => roleDropdownOpen = !roleDropdownOpen}>
+            {getRoleDropdownLabel()}
+          </button>
+          {#if roleDropdownOpen}
+            <div class="dropdown-menu">
+              {#each allRoles as role}
+                <label class="dropdown-item">
+                  <input type="checkbox" checked={selectedRoles.includes(role)} onchange={() => toggleRole(role)} />
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </label>
+              {/each}
+            </div>
+          {/if}
+        </div>
         <select bind:value={boundFilter} onchange={onFilterChange} class="filter-select">
           <option value="all">In &amp; Out</option>
           <option value="in">Entry Only</option>
@@ -496,7 +532,6 @@
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-sm);
     margin-bottom: 1rem;
-    overflow: hidden;
   }
   .table-header {
     padding: 0.875rem 1rem;
@@ -559,6 +594,36 @@
     box-sizing: border-box;
   }
   .filter-select:focus, .ctrl-input:focus { border-color: var(--maroon); }
+
+  .dropdown-wrap { position: relative; }
+  .dropdown-btn { min-width: 130px; text-align: left; display: flex; justify-content: space-between; align-items: center; }
+  .dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-md);
+    padding: 0.5rem;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 140px;
+  }
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--text);
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    transition: background 0.15s;
+  }
+  .dropdown-item:hover { background: var(--surface-hover); }
 
   /* ── Loading ─────────────────────────────────────────────────────────── */
   .loading-row {
