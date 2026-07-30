@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS `registration` (
     `auto_id` INT AUTO_INCREMENT,
     `user_id` INT NOT NULL,
     `department_id` INT NULL, -- NULL for visitors
-    `id` CHAR(10) NULL,
+    `id` CHAR(20) NULL,
     `role` ENUM('student', 'employee', 'visitor', 'concessionaire') NOT NULL,
     `campus` ENUM('Liceo Main', 'RNP', 'PASEO') NOT NULL DEFAULT 'Liceo Main',
     `year_level` VARCHAR(50) NULL,
