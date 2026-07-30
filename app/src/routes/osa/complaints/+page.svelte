@@ -279,22 +279,16 @@
                       <span class="status-badge resolved">Resolved</span>
                   {:else if c.schedule}
                       <span class="status-badge scheduled">Scheduled</span>
-                      {#if data.userRole !== 'security'}
-                        <button class="btn btn-sm btn-outline" disabled={resolveLoadingId === c.id} onclick={(e) => resolveComplaint(c, e)}>
-                          {#if resolveLoadingId === c.id}<div class="spinner"></div>{/if}
-                          Mark Resolved
-                        </button>
-                      {/if}
+                      <button class="btn btn-sm btn-outline" disabled={resolveLoadingId === c.id} onclick={(e) => resolveComplaint(c, e)}>
+                        {#if resolveLoadingId === c.id}<div class="spinner"></div>{/if}
+                        Mark Resolved
+                      </button>
                   {:else}
                       <span class="status-badge pending">Pending</span>
-                      {#if data.userRole !== 'security'}
-                        <button class="btn btn-sm btn-primary" onclick={(e) => openScheduleModal(c, e)}>Set Schedule</button>
-                      {/if}
+                      <button class="btn btn-sm btn-primary" onclick={(e) => openScheduleModal(c, e)}>Set Schedule</button>
                   {/if}
                 </div>
-                {#if data.userRole !== 'security'}
-                  <button class="btn btn-sm btn-danger-outline" onclick={(e) => deleteComplaint(c.id, e)}>Delete</button>
-                {/if}
+                <button class="btn btn-sm btn-danger-outline" onclick={(e) => deleteComplaint(c.id, e)}>Delete</button>
             </div>
           </div>
           {/each}
@@ -317,17 +311,13 @@
               <div class="status-alert success">This complaint has been resolved.</div>
           {:else if selectedComplaint.schedule}
               <div class="status-alert info">Meeting Scheduled for: {new Date(selectedComplaint.schedule).toLocaleString()}</div>
-              {#if data.userRole !== 'security'}
-                <button class="btn btn-primary" disabled={resolveLoadingId === selectedComplaint.id} onclick={(e) => resolveComplaint(selectedComplaint, e)}>
-                  {#if resolveLoadingId === selectedComplaint.id}<div class="spinner"></div>{/if}
-                  Mark as Resolved
-                </button>
-              {/if}
+              <button class="btn btn-primary" disabled={resolveLoadingId === selectedComplaint.id} onclick={(e) => resolveComplaint(selectedComplaint, e)}>
+                {#if resolveLoadingId === selectedComplaint.id}<div class="spinner"></div>{/if}
+                Mark as Resolved
+              </button>
           {:else}
               <div class="status-alert warning">This complaint requires attention.</div>
-              {#if data.userRole !== 'security'}
-                <button class="btn btn-primary" onclick={(e) => openScheduleModal(selectedComplaint, e)}>Schedule Meeting</button>
-              {/if}
+              <button class="btn btn-primary" onclick={(e) => openScheduleModal(selectedComplaint, e)}>Schedule Meeting</button>
           {/if}
         </div>
       {:else}
@@ -542,8 +532,10 @@
   .btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     height: 32px;
     padding: 0 0.875rem;
+    box-sizing: border-box;
     border-radius: var(--radius-sm);
     font-size: 0.8125rem;
     font-weight: 600;
