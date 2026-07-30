@@ -7,7 +7,7 @@
     import { invalidateAll } from '$app/navigation';
 
     let { data } = $props();
-    let apps = $derived(data.applications || []);
+    let apps = $derived((data.applications as any[]) || []);
 
     let tab = $state(data.activeTab || 'validation');
     const tabs = ['validation', 'distribution', 'monitoring', 'history'];
@@ -21,6 +21,8 @@
     const allRoles = ['student', 'employee', 'visitor', 'concessionaire', 'guest'];
     let selectedRoles = $state([...allRoles]);
     let roleDropdownOpen = $state(false);
+
+    let selectedCampus = $state('all');
 
     function toggleRole(role: string) {
         if (selectedRoles.includes(role)) {
@@ -65,6 +67,10 @@
 
         if (selectedRoles.length !== allRoles.length) {
             filtered = filtered.filter(a => selectedRoles.includes((a.role || '').toLowerCase()));
+        }
+
+        if (selectedCampus !== 'all') {
+            filtered = filtered.filter(a => a.campus === selectedCampus);
         }
 
         if (searchQuery) {
@@ -196,6 +202,13 @@
           </div>
         {/if}
       </div>
+
+      <select bind:value={selectedCampus} class="filter-select">
+        <option value="all">All Campuses</option>
+        <option value="Liceo Main">Liceo Main</option>
+        <option value="RNP">RNP</option>
+        <option value="PASEO">PASEO</option>
+      </select>
     </div>
   </div>
 

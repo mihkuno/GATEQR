@@ -26,6 +26,8 @@ CREATE TABLE IF NOT EXISTS `registration` (
     `department_id` INT NULL, -- NULL for visitors
     `id` CHAR(10) NULL,
     `role` ENUM('student', 'employee', 'visitor', 'concessionaire') NOT NULL,
+    `campus` ENUM('Liceo Main', 'RNP', 'PASEO') NOT NULL DEFAULT 'Liceo Main',
+    `year_level` VARCHAR(50) NULL,
     `first_name` VARCHAR(100) NOT NULL,
     `last_name` VARCHAR(100) NOT NULL,
     `contact_number` VARCHAR(20) NOT NULL,
@@ -100,4 +102,16 @@ CREATE TABLE IF NOT EXISTS `otp_codes` (
     `expires_at` TIMESTAMP NOT NULL,
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`auto_id`)
+) ENGINE=InnoDB;
+
+-- Create complaint table
+CREATE TABLE IF NOT EXISTS `complaint` (
+    `id` INT AUTO_INCREMENT,
+    `user_email` VARCHAR(255) NOT NULL,
+    `message` TEXT NOT NULL,
+    `is_read` BOOLEAN DEFAULT FALSE,
+    `schedule` DATETIME NULL,
+    `status` ENUM('pending', 'resolved') DEFAULT 'pending',
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
 ) ENGINE=InnoDB;

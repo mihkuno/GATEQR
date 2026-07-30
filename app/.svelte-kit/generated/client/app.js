@@ -11,21 +11,25 @@ export const nodes = [
 	() => import('./nodes/7'),
 	() => import('./nodes/8'),
 	() => import('./nodes/9'),
-	() => import('./nodes/10')
+	() => import('./nodes/10'),
+	() => import('./nodes/11'),
+	() => import('./nodes/12')
 ];
 
 export const server_loads = [];
 
 export const dictionary = {
 		"/": [~2],
-		"/dean": [~3],
-		"/entry": [4],
-		"/login": [5],
-		"/osa": [~6],
-		"/osa/dashboard": [~7],
-		"/osa/departments": [~8],
-		"/otp": [9],
-		"/status": [~10]
+		"/complaints": [~3],
+		"/dean": [~4],
+		"/entry": [5],
+		"/login": [6],
+		"/osa": [~7],
+		"/osa/complaints": [~8],
+		"/osa/dashboard": [~9],
+		"/osa/departments": [~10],
+		"/otp": [11],
+		"/status": [~12]
 	};
 
 export const hooks = {

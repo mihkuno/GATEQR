@@ -14,6 +14,12 @@
 	"/api/auth/verify": [
 		"src/routes/api/auth/verify/+server.ts"
 	],
+	"/api/complaints": [
+		"src/routes/api/complaints/+server.ts"
+	],
+	"/api/complaints/[id]": [
+		"src/routes/api/complaints/[id]/+server.ts"
+	],
 	"/api/dean/applications": [
 		"src/routes/api/dean/applications/+server.ts"
 	],
@@ -41,6 +47,9 @@
 	"/api/osa/applications": [
 		"src/routes/api/osa/applications/+server.ts"
 	],
+	"/complaints": [
+		"src/routes/complaints/+page.server.ts"
+	],
 	"/dean": [
 		"src/routes/dean/+page.server.ts"
 	],
@@ -48,6 +57,9 @@
 	"/login": [],
 	"/osa": [
 		"src/routes/osa/+page.server.ts"
+	],
+	"/osa/complaints": [
+		"src/routes/osa/complaints/+page.server.ts"
 	],
 	"/osa/dashboard": [
 		"src/routes/osa/dashboard/+page.server.ts"

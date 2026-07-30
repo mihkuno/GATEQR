@@ -69,8 +69,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             await sendEmail(
                 reg.user_email,
                 'Application Approved & Scheduled - Liceo GateQR',
-                `Your vehicle sticker application has been approved by OSA. Your pickup is scheduled on ${new Date(schedule).toLocaleString()}.`,
-                `<p>Your vehicle sticker application has been <strong>approved by OSA</strong>.</p><p>Your pickup is scheduled on: <strong>${new Date(schedule).toLocaleString()}</strong>.</p>`
+                `Congrats your registration has been accepted. You are scheduled to visit OSA to pass the notarized filled up hardcopied agreements and notarized requirements, and receive your QR sticker code. Schedule: ${new Date(schedule).toLocaleString()}.`,
+                `<p>Congrats your registration has been accepted. You are scheduled to visit OSA to pass the notarized filled up hardcopied agreements and notarized requirements, and receive your QR sticker code.</p><p>Schedule: <strong>${new Date(schedule).toLocaleString()}</strong>.</p>`
             );
         } 
         else if (action === 'reject' && reg.status === 'osa_val') {

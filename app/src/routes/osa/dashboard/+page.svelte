@@ -4,7 +4,9 @@
 
     let { data } = $props();
 
-    const navLinks = data.userRole === 'security' ? [] : [
+    const navLinks = data.userRole === 'security' ? [
+        { label: 'Complaints', href: '/osa/complaints', badge: data.unreadComplaints }
+    ] : [
         { label: 'Applications', href: '/osa' },
         { label: 'Departments', href: '/osa/departments' },
     ];
@@ -85,6 +87,7 @@
     let selectedDate  = $state(new Date().toISOString().split('T')[0]);
     let searchQuery   = $state('');
     let boundFilter   = $state('all');
+    let selectedCampus = $state('all');
     
     const allRoles = ['student', 'employee', 'visitor', 'concessionaire', 'guest'];
     let selectedRoles = $state([...allRoles]);
@@ -126,6 +129,7 @@
                 search: searchQuery,
                 type:   'all',
                 bound:  boundFilter,
+                campus: selectedCampus,
                 role:   roleParam,
                 page:   String(currentPage),
                 limit:  String(pageSize),
@@ -316,6 +320,12 @@
           <option value="all">In &amp; Out</option>
           <option value="in">Entry Only</option>
           <option value="out">Exit Only</option>
+        </select>
+        <select bind:value={selectedCampus} onchange={onFilterChange} class="filter-select">
+          <option value="all">All Campuses</option>
+          <option value="Liceo Main">Liceo Main</option>
+          <option value="RNP">RNP</option>
+          <option value="PASEO">PASEO</option>
         </select>
         <input type="date" bind:value={selectedDate} onchange={() => { currentPage = 1; fetchLogs(); }} class="ctrl-input" />
       </div>

@@ -24,6 +24,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         const is_owner = formData.get('is_owner') as string;
         const contact_number = formData.get('contact_number') as string;
         const facebook = formData.get('facebook') as string;
+        const campus = formData.get('campus') as string || 'Liceo Main';
+        const year_level = formData.get('year_level') as string || null;
 
         const saveFile = async (fileKey: string) => {
             const file = formData.get(fileKey) as File | null;
@@ -81,15 +83,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         // 4. Insert registration
         await db.query(`
             INSERT INTO registration (
-                user_id, department_id, id, role, 
+                user_id, department_id, id, role, campus, year_level, 
                 first_name, last_name, contact_number, facebook, vehicle_make, vehicle_plate, is_owner, status,
                 doc_id, doc_load, doc_qr, doc_or, doc_cr, doc_license, doc_letter
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             user_id,
             department_id,
             id_no || null,
             role,
+            campus,
+            year_level,
             first_name,
             last_name,
             contact_number,

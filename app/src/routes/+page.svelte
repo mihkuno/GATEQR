@@ -8,6 +8,8 @@
     let section = $state(1);
     let owner = $state('no');
     let dept = $state('');
+    let campus = $state('');
+    let year_level = $state('');
     
     let fname = $state('');
     let lname = $state('');
@@ -37,10 +39,22 @@
     };
     const dayStr = `${day}${daySuffix(day)}`;
 
+    type FileState = { file: File | null; url: string | null }
+
+    let files = $state({
+        id:         { file: null, url: null } as FileState,
+        enrollment: { file: null, url: null } as FileState,
+        letter:     { file: null, url: null } as FileState,
+        or:         { file: null, url: null } as FileState,
+        cr:         { file: null, url: null } as FileState,
+        license:    { file: null, url: null } as FileState,
+    })
+
     let canProceed = $derived((() => {
         if (section === 1) {
-            if (!fname || !lname || !contact_number || !vehicle || !plate || !role) return false;
+            if (!fname || !lname || !contact_number || !vehicle || !plate || !role || !campus) return false;
             if (['student', 'employee'].includes(role) && (!dept || !idno)) return false;
+            if (role === 'student' && !year_level) return false;
             return true;
         }
         if (section === 2) {
@@ -67,17 +81,6 @@
         }
         return false;
     })());
-
-    type FileState = { file: File | null; url: string | null }
-
-    let files = $state({
-        id:         { file: null, url: null } as FileState,
-        enrollment: { file: null, url: null } as FileState,
-        letter:     { file: null, url: null } as FileState,
-        or:         { file: null, url: null } as FileState,
-        cr:         { file: null, url: null } as FileState,
-        license:    { file: null, url: null } as FileState,
-    })
 
     function setFile(key: keyof typeof files, file: File | null) {
         if (files[key].url) URL.revokeObjectURL(files[key].url!)
@@ -113,6 +116,8 @@
             formData.append('vehicle_make', vehicle);
             formData.append('vehicle_plate', plate);
             formData.append('is_owner', owner);
+            formData.append('campus', campus);
+            if (year_level) formData.append('year_level', year_level);
             
             if (files.or.file) formData.append('doc_or', files.or.file);
             if (files.cr.file) formData.append('doc_cr', files.cr.file);
@@ -223,16 +228,45 @@
         </select>
       </div>
 
+      <div class="field-group">
+        <label class="field-label" for="campus">Campus</label>
+        <select id="campus" bind:value={campus} class:placeholder-sel={!campus}>
+          <option value="" disabled hidden selected>Select campus</option>
+          <option value="Liceo Main">Liceo Main</option>
+          <option value="RNP">RNP</option>
+          <option value="PASEO">PASEO</option>
+        </select>
+      </div>
+
       {#if ['student', 'employee'].includes(role)}
         <div class="field-group">
           <label class="field-label" for="dept">Department</label>
-          <select id="dept" bind:value={dept} class:placeholder-sel={!dept}>
+          <select id="dept" bind:value={dept} class:placeholder-sel={!dept} onchange={() => year_level = ''}>
             <option value="" disabled hidden selected>Select department</option>
             {#each data.departments as d}
               <option value={d}>{d}</option>
             {/each}
           </select>
         </div>
+        
+        {#if role === 'student'}
+          <div class="field-group">
+            <label class="field-label" for="year_level">Year Level</label>
+            <select id="year_level" bind:value={year_level} class:placeholder-sel={!year_level}>
+              <option value="" disabled hidden selected>Select year level</option>
+              {#if dept.toLowerCase().includes('senior highschool')}
+                <option value="Grade 11">Grade 11</option>
+                <option value="Grade 12">Grade 12</option>
+              {:else}
+                <option value="1st Year">1st Year</option>
+                <option value="2nd Year">2nd Year</option>
+                <option value="3rd Year">3rd Year</option>
+                <option value="4th Year">4th Year</option>
+                <option value="5th Year">5th Year</option>
+              {/if}
+            </select>
+          </div>
+        {/if}
         <div class="field-group">
           <label class="field-label" for="idno">ID number</label>
           <input id="idno" type="text" placeholder="2022-XXXXXXX" bind:value={idno} />

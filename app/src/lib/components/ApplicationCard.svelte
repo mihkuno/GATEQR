@@ -29,7 +29,7 @@
     plate: 'ABC-1234',
     owner: 'No',
     ...data
-  });
+  } as Record<string, any>);
 
   const docLabels: Record<string, string> = {
     id: 'School ID',
@@ -77,7 +77,7 @@
       <table class="info-table">
         <tbody>
           {#each Object.entries(defaults) as [key, val]}
-            {#if !['documents', 'owner', 'rejection_reason', 'status', 'crd', 'sgn', 'apv', 'sch', 'exp', 'dlv'].includes(key)}
+            {#if val !== undefined && !['documents', 'owner', 'rejection_reason', 'status', 'crd', 'sgn', 'apv', 'sch', 'exp', 'dlv'].includes(key)}
               <tr>
                 <td class="info-key">{key}:</td>
                 <td class="info-val">{val}</td>

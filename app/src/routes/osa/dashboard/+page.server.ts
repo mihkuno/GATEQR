@@ -1,5 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
+import { db } from '$lib/server/db';
+import type { RowDataPacket } from 'mysql2';
 
 export const load: PageServerLoad = async ({ locals, fetch }) => {
     if (!locals.user || (locals.user.role !== 'osa' && locals.user.role !== 'security')) {
@@ -33,7 +35,13 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
             totalPages = data.totalPages ?? 1;
         }
 
-        return { stats, logs, hourlyChart, roleBreakdown, total, page, totalPages, userRole: locals.user.role };
+        let unreadComplaints = 0;
+        if (locals.user.role === 'security') {
+            const [cRows] = await db.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM complaint WHERE is_read = false');
+            unreadComplaints = cRows[0].count;
+        }
+
+        return { stats, logs, hourlyChart, roleBreakdown, total, page, totalPages, userRole: locals.user.role, unreadComplaints };
     } catch (e) {
         console.error('Failed to load dashboard data:', e);
         return {
@@ -42,7 +50,8 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
             hourlyChart: [],
             roleBreakdown: { student: 0, employee: 0, visitor: 0, concessionaire: 0, guest: 0 },
             total: 0, page: 1, totalPages: 1,
-            userRole: locals.user.role
+            userRole: locals.user.role,
+            unreadComplaints: 0
         };
     }
 };

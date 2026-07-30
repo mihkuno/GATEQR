@@ -19,10 +19,18 @@ export const load = async ({ locals }: Parameters<PageServerLoad>[0]) => {
             ORDER BY r.created_at DESC LIMIT 1
         `, [locals.user.email]);
 
+        // Count complaints with a schedule (new alert for the user)
+        const [schedRows] = await db.query<RowDataPacket[]>(
+            `SELECT COUNT(*) as count FROM complaint WHERE user_email = ? AND schedule IS NOT NULL AND status != 'resolved'`,
+            [locals.user.email]
+        );
+        const scheduledCount = schedRows[0].count;
+
         const application = rows.length > 0 ? rows[0] : null;
 
         return {
             userEmail: locals.user.email,
+            scheduledCount,
             application: application ? {
                 ...application,
                 // Serialize dates for SvelteKit

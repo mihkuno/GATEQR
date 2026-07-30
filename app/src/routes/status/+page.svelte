@@ -1,13 +1,16 @@
 <script lang="ts">
     import AppShell from '$lib/components/AppShell.svelte';
     import ApplicationCard from '$lib/components/ApplicationCard.svelte';
+    import type { PageData } from './$types';
+
+    let { data }: { data: PageData } = $props();
     
-    let { data } = $props();
-    let app = $derived(data.application);
+    // Convert to any[] to avoid TypeScript strict property checks on RowDataPacket
+    let app = $derived((data.application as any) || null);
     let skipDean = $derived(app ? ['visitor', 'concessionaire'].includes(app.role) : false);
 
     // Helpers to determine step states
-    function stepStatus(app, stepNum) {
+    function stepStatus(app: any, stepNum: number) {
         if (!app) return 'pending';
         const s = app.status;
         
@@ -43,8 +46,17 @@
 <AppShell>
   <!-- User greeting -->
   <div class="welcome-bar">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-    <span>{data.userEmail}</span>
+    <div class="wb-user">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>{data.userEmail}</span>
+    </div>
+    <a href="/complaints" class="wb-action" class:wb-action-alert={data.scheduledCount > 0}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      My Complaints
+      {#if data.scheduledCount > 0}
+        <span class="wb-badge"></span>
+      {/if}
+    </a>
   </div>
 
   {#if app}
@@ -119,7 +131,7 @@
           </div>
           <div class="ps-info">
             <span class="ps-label">Step {skipDean ? 2 : 3}</span>
-            <span class="ps-desc">Visit OSA to acquire QR sticker</span>
+            <span class="ps-desc">Visit OSA to pass hardcopied agreements & receive QR</span>
             {#if app.dist_sched}
               <div class="sched-pill">Scheduled: {new Date(app.dist_sched).toLocaleString('en-US', {dateStyle: 'medium', timeStyle: 'short'})}</div>
             {/if}
@@ -135,6 +147,8 @@
       email: data.userEmail,
       department: app.department_name || '-',
       'dept. email': app.department_email || '-',
+      campus: app.campus || '-',
+      'year level': app.role === 'student' ? (app.year_level || '-') : undefined,
       vehicle: app.vehicle_make,
       plate: app.vehicle_plate,
       owner: app.is_owner ? 'Yes' : 'No',
@@ -172,6 +186,7 @@
   .welcome-bar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.5rem;
     font-size: 0.8rem;
     color: var(--text-secondary);
@@ -182,7 +197,60 @@
     padding: 0.5rem 0.875rem;
   }
 
-  .welcome-bar svg { color: var(--maroon); flex-shrink: 0; }
+  .wb-user {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .wb-user svg { color: var(--maroon); flex-shrink: 0; }
+
+  .wb-action {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    background: var(--maroon);
+    color: white;
+    border-radius: var(--radius-sm);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.75rem;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    box-shadow: 0 2px 8px rgba(107,26,42,0.25);
+  }
+  
+  .wb-action:hover {
+    background: #551320;
+    box-shadow: 0 4px 12px rgba(107,26,42,0.35);
+  }
+
+  .wb-action-alert {
+    animation: pulse-alert 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-alert {
+    0%, 100% { box-shadow: 0 2px 8px rgba(220,38,38,0.3); }
+    50% { box-shadow: 0 2px 16px rgba(220,38,38,0.6); }
+  }
+
+  .wb-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 9px;
+    height: 9px;
+    background: #ef4444;
+    border-radius: 50%;
+    border: 1.5px solid var(--surface);
+    animation: badge-pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes badge-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.8; }
+  }
 
   .progress-steps {
     display: flex;

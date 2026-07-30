@@ -52,7 +52,7 @@
   }
 
   .header-inner {
-    max-width: 680px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 0.75rem 1.25rem;
     display: flex;
@@ -128,7 +128,7 @@
   }
 
   .shell-content {
-    max-width: 560px;
+    max-width: 900px;
     margin: 0 auto;
     display: flex;
     flex-direction: column;

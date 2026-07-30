@@ -17,6 +17,7 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
     const typeFilter = url.searchParams.get('type')  || 'all';   // all | registered | guest
     const boundFilter= url.searchParams.get('bound') || 'all';   // all | in | out
     const roleFilter = url.searchParams.get('role')  || 'all';   // all | student | employee | visitor | concessionaire
+    const campusFilter = url.searchParams.get('campus') || 'all';
     const page       = Math.max(1, parseInt(url.searchParams.get('page') || '1'));
     const limit      = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '25')));
 
@@ -53,12 +54,13 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
                 JOIN registration r ON e.registration_id = r.auto_id
                 WHERE (DATE(e.\`in\`) = ${dateFilter} OR (e.\`out\` IS NOT NULL AND DATE(e.\`out\`) = ${dateFilter}))
                 ${regRoleCsv ? 'AND FIND_IN_SET(r.role, ?)' : ''}
-            `, [...dateParams, ...dateParams, ...(regRoleCsv ? [regRoleCsv] : [])]);
+                ${campusFilter !== 'all' ? 'AND r.campus = ?' : ''}
+            `, [...dateParams, ...dateParams, ...(regRoleCsv ? [regRoleCsv] : []), ...(campusFilter !== 'all' ? [campusFilter] : [])]);
             return rows;
         })();
 
         // ── Guest entries ────────────────────────────────────────────────────
-        const isGuestIncluded = roleFilter === 'all' || roleFilter.split(',').includes('guest');
+        const isGuestIncluded = (roleFilter === 'all' || roleFilter.split(',').includes('guest')) && campusFilter === 'all';
         const guestRows: RowDataPacket[] = (typeFilter === 'registered' || !isGuestIncluded) ? [] : await (async () => {
             const [rows] = await db.query<RowDataPacket[]>(`
                 SELECT 
@@ -96,6 +98,7 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
                     role: row.role,
                     make: row.vehicle_make,
                     plate: row.vehicle_plate,
+                    campus: row.campus,
                     bound: 'In',
                     type: 'Registered',
                     photo: row.pic_in,
@@ -115,6 +118,7 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
                     role: row.role,
                     make: row.vehicle_make,
                     plate: row.vehicle_plate,
+                    campus: row.campus,
                     bound: 'Out',
                     type: 'Registered',
                     photo: row.pic_out,
