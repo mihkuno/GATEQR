@@ -18,7 +18,7 @@
 
   let showDocPopup = $state<string | null>(null);
 
-  const defaults = {
+  let defaults = $derived({
     id: '2022307166',
     name: 'Joeninyo Cainday',
     role: 'Student',
@@ -29,7 +29,7 @@
     plate: 'ABC-1234',
     owner: 'No',
     ...data
-  };
+  });
 
   const docLabels: Record<string, string> = {
     id: 'School ID',
@@ -40,21 +40,22 @@
     letter: 'Signed Letter / DOAS'
   };
 
-  const role = defaults.role?.toLowerCase() ?? 'student';
-  const ownerVal = defaults.owner?.toLowerCase() === 'yes' ? 'yes' : 'no';
-  const rejectionReason = defaults.rejection_reason ?? null;
-  const appStatus = defaults.status ?? null;
-  const reasonLabel = appStatus === 'revoked' ? 'Revoked:' : 'Rejected:';
+  let role = $derived(defaults.role?.toLowerCase() ?? 'student');
+  let ownerVal = $derived(defaults.owner?.toLowerCase() === 'yes' ? 'yes' : 'no');
+  let rejectionReason = $derived(defaults.rejection_reason ?? null);
+  let appStatus = $derived(defaults.status ?? null);
+  let reasonLabel = $derived(appStatus === 'revoked' ? 'Revoked:' : 'Rejected:');
 
   function formatDate(d: string | null | undefined) {
     if (!d) return null;
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
   }
 
-  const statusLabel = appStatus?.replace('_', ' ')?.toUpperCase() || 'UNKNOWN';
-  const statusVariant = 
+  let statusLabel = $derived(appStatus?.replace('_', ' ')?.toUpperCase() || 'UNKNOWN');
+  let statusVariant = $derived(
     ['osa_dist', 'osa_val', 'dept_val'].includes(appStatus) ? 'success' :
-    ['rejected', 'revoked', 'expired'].includes(appStatus) ? 'danger' : 'warning';
+    ['rejected', 'revoked', 'expired'].includes(appStatus) ? 'danger' : 'warning'
+  );
 </script>
 
 <div class="app-card">

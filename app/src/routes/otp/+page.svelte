@@ -36,6 +36,8 @@
           goto('/osa');
         } else if (data.role === 'dean') {
           goto('/dean');
+        } else if (data.role === 'security') {
+          goto('/osa/dashboard');
         } else {
           goto('/status'); // Or '/' if they need to apply
         }

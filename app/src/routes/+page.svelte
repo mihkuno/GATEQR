@@ -11,6 +11,8 @@
     
     let fname = $state('');
     let lname = $state('');
+    let contact_number = $state('');
+    let facebook = $state('');
     let vehicle = $state('');
     let plate = $state('');
     let idno = $state('');
@@ -37,21 +39,22 @@
 
     let canProceed = $derived((() => {
         if (section === 1) {
-            if (!fname || !lname || !vehicle || !plate || !role) return false;
+            if (!fname || !lname || !contact_number || !vehicle || !plate || !role) return false;
             if (['student', 'employee'].includes(role) && (!dept || !idno)) return false;
             return true;
         }
         if (section === 2) {
+            const isVisitorLike = ['visitor', 'concessionaire'].includes(role);
             if (!files.or.file || !files.cr.file) return false;
-            if (role !== 'visitor' || owner === 'no') {
+            if (!isVisitorLike || owner === 'no') {
                 if (!files.license.file) return false;
             }
-            if (role !== 'visitor') {
+            if (!isVisitorLike) {
                 if (['student', 'employee'].includes(role) && !files.id.file) return false;
                 if (!files.enrollment.file) return false;
                 if (owner === 'yes' && !files.letter.file) return false;
             }
-            if (role === 'visitor' && owner === 'yes') {
+            if (isVisitorLike && owner === 'yes') {
                 if (!files.license.file || !files.letter.file) return false;
             }
             return true;
@@ -92,7 +95,7 @@
     ];
 
     async function handleSubmit() {
-        if (!fname || !lname || !vehicle || !plate || !role) {
+        if (!fname || !lname || !contact_number || !vehicle || !plate || !role) {
             alert('Please fill out all required fields.');
             return;
         }
@@ -105,6 +108,8 @@
             formData.append('id_no', idno);
             formData.append('first_name', fname);
             formData.append('last_name', lname);
+            formData.append('contact_number', contact_number);
+            formData.append('facebook', facebook);
             formData.append('vehicle_make', vehicle);
             formData.append('vehicle_plate', plate);
             formData.append('is_owner', owner);
@@ -186,6 +191,17 @@
         </div>
       </div>
 
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label" for="contact">Contact number</label>
+          <input id="contact" type="text" placeholder="09123456789" bind:value={contact_number} />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="fb">Facebook (Optional)</label>
+          <input id="fb" type="text" placeholder="facebook.com/userid" bind:value={facebook} />
+        </div>
+      </div>
+
       <div class="field-group">
         <label class="field-label" for="vehicle">Vehicle make & model</label>
         <input id="vehicle" type="text" placeholder="e.g. Honda Civic 2022" bind:value={vehicle} />
@@ -203,6 +219,7 @@
           <option value="student">Student</option>
           <option value="employee">Employee</option>
           <option value="visitor">Visitor</option>
+          <option value="concessionaire">Concessionaire</option>
         </select>
       </div>
 
@@ -239,7 +256,7 @@
       </div>
 
       <!-- Liceo documents -->
-      {#if role !== 'visitor'}
+      {#if !['visitor', 'concessionaire'].includes(role)}
         <div class="upload-section">
           <p class="upload-section-title">Liceo Documents</p>
           <div class="upload-grid" style="--cols: {owner === 'no' ? 3 : 2}">
@@ -254,9 +271,9 @@
         </div>
       {/if}
 
-      {#if role === 'visitor' && owner === 'yes'}
+      {#if ['visitor', 'concessionaire'].includes(role) && owner === 'yes'}
         <div class="upload-section">
-          <p class="upload-section-title">Visitor Documents</p>
+          <p class="upload-section-title">Visitor / Concessionaire Documents</p>
           <div class="upload-grid" style="--cols: 2">
             {@render uploadLabel("Driver's License (LTO)", 'license')}
             {@render uploadLabel('Signed Letter / DOAS', 'letter')}
@@ -266,10 +283,10 @@
 
       <div class="upload-section">
         <p class="upload-section-title">LTO Vehicle Documents</p>
-        <div class="upload-grid" style="--cols: {role === 'visitor' && owner === 'yes' ? 2 : 3}">
+        <div class="upload-grid" style="--cols: {['visitor', 'concessionaire'].includes(role) && owner === 'yes' ? 2 : 3}">
           {@render uploadLabel('Vehicle OR', 'or')}
           {@render uploadLabel('Vehicle CR', 'cr')}
-          {#if role !== 'visitor' || owner === 'no'}
+          {#if !['visitor', 'concessionaire'].includes(role) || owner === 'no'}
             {@render uploadLabel("Driver's License", 'license')}
           {/if}
         </div>
@@ -371,9 +388,19 @@
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </button>
     {:else}
-      <button class="nav-btn btn-submit" onclick={handleSubmit} disabled={loading || !canProceed}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        {loading ? 'Submitting...' : 'Submit Application'}
+      <button
+        class="nav-btn btn-submit"
+        class:btn-loading={loading}
+        onclick={handleSubmit}
+        disabled={loading || !canProceed}
+      >
+        {#if loading}
+          {@render spinner()}
+          Submitting…
+        {:else}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Submit Application
+        {/if}
       </button>
     {/if}
   </div>
@@ -382,6 +409,12 @@
     Issues? Contact <a href="mailto:osa@liceo.edu.ph" class="footer-link">osa@liceo.edu.ph</a>
   </p>
 </AppShell>
+
+{#snippet spinner()}
+  <svg class="btn-spinner" viewBox="0 0 20 20" fill="none">
+    <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2.5" stroke-dasharray="35 15" stroke-linecap="round"/>
+  </svg>
+{/snippet}
 
 {#snippet uploadLabel(label: string, key: keyof typeof files)}
   <label class="upload-tile">
@@ -773,6 +806,24 @@
     opacity: 0.5;
     cursor: not-allowed;
     pointer-events: none;
+  }
+
+  /* Loading state for submit */
+  .btn-loading {
+    opacity: 1 !important;
+    cursor: wait !important;
+    pointer-events: none;
+  }
+
+  .btn-spinner {
+    width: 14px;
+    height: 14px;
+    animation: spin 0.75s linear infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
 
   .link-section {

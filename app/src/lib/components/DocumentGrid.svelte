@@ -15,8 +15,8 @@
 </script>
 
 <div class="doc-section">
-  <!-- Liceo documents for non-visitors -->
-  {#if role !== 'visitor'}
+  <!-- Liceo documents for non-visitors/concessionaires (always shown for student/employee) -->
+  {#if role !== 'visitor' && role !== 'concessionaire'}
     <div class="doc-grid" style="--cols: {owner === 'no' ? 3 : 2}">
       <button class="doc-tile" class:has-doc={!!documents.id} disabled={!clickable || !documents.id} onclick={() => open(documents.id)}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>

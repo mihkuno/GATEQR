@@ -1,17 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
-import nodemailer from 'nodemailer';
-import { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } from '$env/static/private';
-
-const transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: Number(SMTP_PORT),
-    auth: {
-        user: SMTP_USER,
-        pass: SMTP_PASS
-    }
-});
+import { sendEmail } from '$lib/server/email';
 
 export const POST: RequestHandler = async ({ request }) => {
     try {
@@ -34,13 +24,12 @@ export const POST: RequestHandler = async ({ request }) => {
         );
 
         // Send email
-        await transporter.sendMail({
-            from: '"GateQR" <noreply@gateqr.liceo.edu.ph>',
-            to: email,
-            subject: 'Your GateQR Login Code',
-            text: `Your login code is: ${otp}. It will expire in 10 minutes.`,
-            html: `<h3>Welcome to GateQR</h3><p>Your login code is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`
-        });
+        await sendEmail(
+            email,
+            'Your GateQR Login Code',
+            `Your login code is: ${otp}. It will expire in 10 minutes.`,
+            `<h3>Welcome to GateQR</h3><p>Your login code is: <strong>${otp}</strong></p><p>It will expire in 10 minutes.</p>`
+        );
 
         // For testing/development, log the OTP
         console.log(`[OTP] Generated for ${email}: ${otp}`);

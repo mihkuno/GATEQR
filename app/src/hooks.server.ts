@@ -26,8 +26,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// Protect OSA routes
 	if (url.startsWith('/osa')) {
-		if (!event.locals.user || event.locals.user.role !== 'osa') {
-			throw redirect(303, '/login');
+		if (url.startsWith('/osa/dashboard')) {
+			if (!event.locals.user || (event.locals.user.role !== 'osa' && event.locals.user.role !== 'security')) {
+				throw redirect(303, '/login');
+			}
+		} else {
+			if (!event.locals.user || event.locals.user.role !== 'osa') {
+				throw redirect(303, '/login');
+			}
 		}
 	}
 

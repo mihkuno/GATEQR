@@ -4,6 +4,7 @@
     
     let { data } = $props();
     let app = $derived(data.application);
+    let skipDean = $derived(app ? ['visitor', 'concessionaire'].includes(app.role) : false);
 
     // Helpers to determine step states
     function stepStatus(app, stepNum) {
@@ -13,7 +14,7 @@
         if (s === 'rejected' || s === 'revoked') return 'rejected';
         
         if (stepNum === 1) { // Dean Approval
-            if (app.role === 'visitor') return 'done'; // Visitors skip dean
+            if (['visitor', 'concessionaire'].includes(app.role)) return 'done'; // Visitors & concessionaires skip dean
             if (['osa_val', 'osa_dist', 'expired'].includes(s)) return 'done';
             if (s === 'dept_val') return 'active';
             return 'pending';
@@ -74,6 +75,7 @@
     {:else}
       <!-- Progress Steps -->
       <div class="progress-steps">
+        {#if !skipDean}
         <div class="progress-step" class:step-done={stepStatus(app, 1) === 'done'} class:step-active={stepStatus(app, 1) === 'active'} class:step-pending={stepStatus(app, 1) === 'pending'}>
           <div class="ps-icon">
             {#if stepStatus(app, 1) === 'done'}
@@ -89,17 +91,18 @@
         </div>
 
         <div class="ps-connector"></div>
+        {/if}
 
         <div class="progress-step" class:step-done={stepStatus(app, 2) === 'done'} class:step-active={stepStatus(app, 2) === 'active'} class:step-pending={stepStatus(app, 2) === 'pending'}>
           <div class="ps-icon">
             {#if stepStatus(app, 2) === 'done'}
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
             {:else}
-              2
+              {skipDean ? 1 : 2}
             {/if}
           </div>
           <div class="ps-info">
-            <span class="ps-label">Step 2</span>
+            <span class="ps-label">Step {skipDean ? 1 : 2}</span>
             <span class="ps-desc">Approval from Office of Student Affairs</span>
           </div>
         </div>
@@ -115,7 +118,7 @@
             {/if}
           </div>
           <div class="ps-info">
-            <span class="ps-label">Step 3</span>
+            <span class="ps-label">Step {skipDean ? 2 : 3}</span>
             <span class="ps-desc">Visit OSA to acquire QR sticker</span>
             {#if app.dist_sched}
               <div class="sched-pill">Scheduled: {new Date(app.dist_sched).toLocaleString('en-US', {dateStyle: 'medium', timeStyle: 'short'})}</div>

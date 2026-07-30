@@ -25,19 +25,25 @@
 
     let scheduleModalOpen = $state(false);
     let selectedSchedule = $state('');
-    let pendingAction = $state<{id: number, action: string} | null>(null);
+    let pendingAction = $state<{ id: number; action: string; resolve: () => void } | null>(null);
+    let confirmLoading = $state(false);
 
     async function handleAction(registration_id: number, action: string) {
         if (action === 'accept') {
-            pendingAction = { id: registration_id, action };
-            scheduleModalOpen = true;
-            return;
+            // Return a promise that stays pending until the modal resolves or is cancelled.
+            // This keeps ActionBar's loadingAction active (spinner + disabled) the whole time.
+            return new Promise<void>((resolve) => {
+                pendingAction = { id: registration_id, action, resolve };
+                scheduleModalOpen = true;
+            });
         }
 
         let reason = '';
         if (action === 'reject' || action === 'revoke') {
             reason = prompt(`Please provide a reason to ${action}:`);
             if (reason === null) return;
+        } else if (action === 'delete' || action === 'unrevoke') {
+            if (!confirm(`Are you sure you want to ${action} this application?`)) return;
         }
 
         await submitAction(registration_id, action, reason);
@@ -49,9 +55,23 @@
             return;
         }
         if (pendingAction) {
-            await submitAction(pendingAction.id, pendingAction.action, '', selectedSchedule);
+            confirmLoading = true;
+            try {
+                await submitAction(pendingAction.id, pendingAction.action, '', selectedSchedule);
+            } finally {
+                confirmLoading = false;
+                scheduleModalOpen = false;
+                pendingAction.resolve(); // release ActionBar's loadingAction
+            }
         }
+        pendingAction = null;
+        selectedSchedule = '';
+    }
+
+    function cancelSchedule() {
+        if (confirmLoading) return;
         scheduleModalOpen = false;
+        pendingAction?.resolve(); // release ActionBar so the button re-enables
         pendingAction = null;
         selectedSchedule = '';
     }
@@ -122,9 +142,7 @@
               <a href={app.doc_qr} download>Download</a>
             </div>
           {/if}
-          {#if tab !== 'history'}
-            <ActionBar {tab} onaction={(action) => handleAction(app.auto_id, action)} />
-          {/if}
+          <ActionBar {tab} status={app.status} expiresAt={app.expires_at} onaction={(action) => handleAction(app.auto_id, action)} />
         {/snippet}
       </ApplicationCard>
     {:else}
@@ -133,14 +151,23 @@
   </div>
 
   {#if scheduleModalOpen}
-    <div class="modal-overlay" onclick={() => scheduleModalOpen = false}>
+    <div class="modal-overlay" onclick={() => { if (!confirmLoading) cancelSchedule(); }}>
       <div class="modal-content" onclick={(e) => e.stopPropagation()}>
         <h3>Schedule Sticker Pickup</h3>
         <p>Please select a date and time for the applicant to visit OSA.</p>
-        <input type="datetime-local" bind:value={selectedSchedule} class="sched-input" />
+        <input type="datetime-local" bind:value={selectedSchedule} class="sched-input" disabled={confirmLoading} />
         <div class="modal-actions">
-          <button class="btn-cancel" onclick={() => scheduleModalOpen = false}>Cancel</button>
-          <button class="btn-submit" onclick={submitSchedule}>Confirm Schedule</button>
+          <button class="btn-cancel" onclick={cancelSchedule} disabled={confirmLoading}>Cancel</button>
+          <button class="btn-confirm" onclick={submitSchedule} disabled={confirmLoading} class:btn-confirming={confirmLoading}>
+            {#if confirmLoading}
+              <svg class="modal-spinner" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="2.5" stroke-dasharray="35 15" stroke-linecap="round"/>
+              </svg>
+              Confirming…
+            {:else}
+              Confirm Schedule
+            {/if}
+          </button>
         </div>
       </div>
     </div>
@@ -206,13 +233,30 @@
     justify-content: flex-end;
     gap: 0.5rem;
   }
-  .btn-cancel, .btn-submit {
+  .btn-cancel, .btn-confirm {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
     padding: 0.5rem 1rem;
     border-radius: var(--radius-sm);
     cursor: pointer;
     border: none;
     font-weight: 600;
+    font-family: inherit;
+    font-size: 0.875rem;
+    transition: opacity 0.15s;
   }
   .btn-cancel { background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); }
-  .btn-submit { background: var(--maroon); color: white; }
+  .btn-cancel:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-confirm { background: var(--maroon); color: white; }
+  .btn-confirm:disabled { opacity: 0.7; cursor: not-allowed; }
+  .btn-confirming { cursor: wait !important; }
+
+  .modal-spinner {
+    width: 14px;
+    height: 14px;
+    animation: spin 0.75s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 </style>

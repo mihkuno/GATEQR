@@ -64,6 +64,6 @@ declare module "$app/types" {
 		};
 		Pathname(): "/" | "/api/apply" | "/api/auth/login" | "/api/auth/logout" | "/api/auth/verify" | "/api/dean/applications" | "/api/departments" | "/api/gate/entry" | "/api/gate/exit" | "/api/gate/logs" | "/api/gate/lookup" | "/api/gate/manual" | "/api/gate/stats" | "/api/osa/applications" | "/dean" | "/entry" | "/login" | "/osa" | "/osa/dashboard" | "/osa/departments" | "/otp" | "/status";
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
-		Asset(): "/robots.txt" | string & {};
+		Asset(): "/robots.txt" | "/uploads/1785383300996-2js0obc-Cainday.png" | "/uploads/1785383300996-6b6n5jv-Screenshot__23_.png" | "/uploads/1785383300998-nsuelbs-Screenshot__1_.png" | "/uploads/1785385643087-xrpqmrw-Cainday.png" | "/uploads/1785385643088-s7bpbvj-Cainday.png" | "/uploads/1785385643090-vr0xd2g-Screenshot__1_.png" | "/uploads/1785385840230-nm1o5dd-Cainday.png" | "/uploads/1785385840230-wb9luiw-Cainday.png" | "/uploads/1785385840231-6ih9fhf-Cainday.png" | "/uploads/qr-1-1785385470270.png" | string & {};
 	}
 }

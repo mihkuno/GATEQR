@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import jwt from 'jsonwebtoken';
 import type { RowDataPacket } from 'mysql2';
-import { JWT_SECRET, OSA_EMAIL } from '$env/static/private';
+import { JWT_SECRET, OSA_EMAIL, SECURITY_EMAIL } from '$env/static/private';
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
     try {
@@ -32,6 +32,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
         if (email === OSA_EMAIL) {
             role = 'osa';
+        } else if (email === SECURITY_EMAIL) {
+            role = 'security';
         } else {
             // Check if they are a Dean (in department table)
             const [deptRows] = await db.query<RowDataPacket[]>(

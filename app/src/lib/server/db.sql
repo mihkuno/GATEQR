@@ -25,9 +25,11 @@ CREATE TABLE IF NOT EXISTS `registration` (
     `user_id` INT NOT NULL,
     `department_id` INT NULL, -- NULL for visitors
     `id` CHAR(10) NULL,
-    `role` ENUM('student', 'employee', 'visitor') NOT NULL,
+    `role` ENUM('student', 'employee', 'visitor', 'concessionaire') NOT NULL,
     `first_name` VARCHAR(100) NOT NULL,
     `last_name` VARCHAR(100) NOT NULL,
+    `contact_number` VARCHAR(20) NOT NULL,
+    `facebook` VARCHAR(255) NULL,
     `vehicle_make` VARCHAR(100) NOT NULL,
     `vehicle_plate` VARCHAR(50) NOT NULL,
     `is_owner` BOOLEAN NOT NULL,

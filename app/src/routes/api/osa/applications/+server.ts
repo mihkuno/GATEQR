@@ -4,6 +4,8 @@ import { db } from '$lib/server/db';
 import type { RowDataPacket } from 'mysql2';
 import QRCode from 'qrcode';
 import { join } from 'path';
+import fs from 'fs';
+import { sendEmail } from '$lib/server/email';
 
 export const GET: RequestHandler = async ({ locals }) => {
     if (!locals.user || locals.user.role !== 'osa') {
@@ -33,7 +35,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     try {
         const { registration_id, action, reason, schedule } = await request.json();
 
-        const [rows] = await db.query<RowDataPacket[]>('SELECT * FROM registration WHERE auto_id = ?', [registration_id]);
+        const [rows] = await db.query<RowDataPacket[]>('SELECT r.*, u.email as user_email FROM registration r JOIN user u ON r.user_id = u.auto_id WHERE r.auto_id = ?', [registration_id]);
         if (rows.length === 0) {
             return json({ error: 'Application not found' }, { status: 404 });
         }
@@ -64,20 +66,82 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                     expires_at = DATE_ADD(created_at, INTERVAL ? MONTH)
                 WHERE auto_id = ?
             `, [qrUrl, new Date(schedule), expiryMonths, registration_id]);
+            await sendEmail(
+                reg.user_email,
+                'Application Approved & Scheduled - Liceo GateQR',
+                `Your vehicle sticker application has been approved by OSA. Your pickup is scheduled on ${new Date(schedule).toLocaleString()}.`,
+                `<p>Your vehicle sticker application has been <strong>approved by OSA</strong>.</p><p>Your pickup is scheduled on: <strong>${new Date(schedule).toLocaleString()}</strong>.</p>`
+            );
         } 
         else if (action === 'reject' && reg.status === 'osa_val') {
             if (!reason) return json({ error: 'Reason required' }, { status: 400 });
             await db.query(`UPDATE registration SET status = 'rejected', rejected_at = NOW(), invalid_reason = ? WHERE auto_id = ?`, [reason, registration_id]);
+            await sendEmail(
+                reg.user_email,
+                'Application Rejected by OSA - Liceo GateQR',
+                `Your vehicle sticker application was rejected by OSA. Reason: ${reason}`,
+                `<p>Your vehicle sticker application was <strong>rejected by OSA</strong>.</p><p>Reason: <em>${reason}</em></p>`
+            );
         }
         else if (action === 'deliver' && reg.status === 'osa_dist') {
             await db.query(`UPDATE registration SET osa_dist_at = NOW() WHERE auto_id = ?`, [registration_id]);
+            await sendEmail(
+                reg.user_email,
+                'Sticker Delivered - Liceo GateQR',
+                'Your vehicle sticker has been marked as delivered by OSA.',
+                '<p>Your vehicle sticker has been marked as <strong>delivered</strong> by OSA.</p>'
+            );
         }
         else if (action === 'revoke' && reg.status === 'osa_dist') {
             if (!reason) return json({ error: 'Reason required' }, { status: 400 });
             await db.query(`UPDATE registration SET status = 'revoked', revoked_at = NOW(), invalid_reason = ? WHERE auto_id = ?`, [reason, registration_id]);
+            await sendEmail(
+                reg.user_email,
+                'Application Revoked - Liceo GateQR',
+                `Your parking access has been revoked by OSA. Reason: ${reason}`,
+                `<p>Your parking access has been <strong>revoked</strong> by OSA.</p><p>Reason: <em>${reason}</em></p>`
+            );
         }
         else if (action === 'retract') {
             await db.query(`UPDATE registration SET status = 'osa_val', osa_val_at = NULL, osa_dist_at = NULL, revoked_at = NULL, rejected_at = NULL, invalid_reason = NULL, doc_qr = NULL WHERE auto_id = ?`, [registration_id]);
+            await sendEmail(
+                reg.user_email,
+                'Application Approval Retracted - Liceo GateQR',
+                'Your application approval has been retracted by OSA and is back under review.',
+                '<p>Your application approval has been <strong>retracted</strong> by OSA and is back under review.</p>'
+            );
+        }
+        else if (action === 'unrevoke' && reg.status === 'revoked') {
+            if (reg.expires_at && new Date(reg.expires_at) < new Date()) {
+                return json({ error: 'Cannot unrevoke an expired registration' }, { status: 400 });
+            }
+            await db.query(`UPDATE registration SET status = 'osa_dist', revoked_at = NULL, invalid_reason = NULL WHERE auto_id = ?`, [registration_id]);
+            await sendEmail(
+                reg.user_email,
+                'Application Unrevoked - Liceo GateQR',
+                'Your parking access has been restored by OSA.',
+                '<p>Your parking access has been <strong>restored</strong> by OSA.</p>'
+            );
+        }
+        else if (action === 'delete') {
+            const files = [reg.doc_id, reg.doc_load, reg.doc_or, reg.doc_cr, reg.doc_license, reg.doc_letter, reg.doc_qr].filter(Boolean);
+            for (const file of files) {
+                const filepath = join(process.cwd(), 'static', file);
+                try {
+                    if (fs.existsSync(filepath)) {
+                        fs.unlinkSync(filepath);
+                    }
+                } catch (e) {
+                    console.error('Failed to delete file', filepath, e);
+                }
+            }
+            await db.query(`DELETE FROM registration WHERE auto_id = ?`, [registration_id]);
+            await sendEmail(
+                reg.user_email,
+                'Application Deleted - Liceo GateQR',
+                'Your vehicle sticker application has been permanently deleted by OSA.',
+                '<p>Your vehicle sticker application has been <strong>permanently deleted</strong> by OSA.</p>'
+            );
         }
         else {
             return json({ error: 'Invalid action for current status' }, { status: 400 });
