@@ -1,13 +1,13 @@
 <script lang="ts">
-  import StatusBadge from './StatusBadge.svelte';
-  import DocumentGrid from './DocumentGrid.svelte';
+  import StatusBadge from "./StatusBadge.svelte";
+  import DocumentGrid from "./DocumentGrid.svelte";
 
   let {
-    tab = 'validation',
+    tab = "validation",
     showQR = false,
     showDocs = true,
     data = {},
-    children
+    children,
   }: {
     tab?: string;
     showQR?: boolean;
@@ -18,43 +18,43 @@
 
   let showDocPopup = $state<string | null>(null);
 
-  let defaults = $derived({
-    id: '2022307166',
-    name: 'Joeninyo Cainday',
-    role: 'Student',
-    email: 'joenino.cainday@liceo.edu.ph',
-    department: 'BSCS',
-    'dept. email': 'junar.landicho@liceo.edu.ph',
-    vehicle: 'Toyota Corolla',
-    plate: 'ABC-1234',
-    owner: 'No',
-    ...data
-  } as Record<string, any>);
+  let defaults = $derived(data as Record<string, any>);
 
   const docLabels: Record<string, string> = {
-    id: 'School ID',
-    enrollment: 'Enrollment / Load',
-    or: 'Vehicle OR',
-    cr: 'Vehicle CR',
+    id: "School ID",
+    enrollment: "Enrollment / Load",
+    or: "Vehicle OR",
+    cr: "Vehicle CR",
     license: "Driver's License",
-    letter: 'Signed Letter / DOAS'
+    letter: "Signed Letter / DOAS",
   };
 
-  let role = $derived(defaults.role?.toLowerCase() ?? 'student');
-  let ownerVal = $derived(defaults.owner?.toLowerCase() === 'yes' ? 'yes' : 'no');
-  let rejectionReason = $derived(defaults.rejection_reason ?? null);
-  let appStatus = $derived(defaults.status ?? null);
-  let reasonLabel = $derived(appStatus === 'revoked' ? 'Revoked:' : 'Rejected:');
+  let role = $derived(data.role?.toLowerCase() ?? "student");
+  let ownerVal = $derived(data.owner?.toLowerCase() === "yes" ? "yes" : "no");
+  let rejectionReason = $derived(data.rejection_reason ?? null);
+  let appStatus = $derived(data.status ?? null);
+  let reasonLabel = $derived(
+    appStatus === "revoked" ? "Revoked:" : "Rejected:",
+  );
 
   function formatDate(d: string | null | undefined) {
     if (!d) return null;
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+    return new Date(d).toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    });
   }
 
-  let statusLabel = $derived(appStatus?.replace('_', ' ')?.toUpperCase() || 'UNKNOWN');
+  let statusLabel = $derived(
+    appStatus?.replace("_", " ")?.toUpperCase() || "UNKNOWN",
+  );
   let statusVariant = $derived(
-    ['osa_dist', 'osa_val', 'dept_val'].includes(appStatus) ? 'success' :
-    ['rejected', 'revoked', 'expired'].includes(appStatus) ? 'danger' : 'warning'
+    ["osa_dist", "osa_val", "dept_val"].includes(appStatus)
+      ? "success"
+      : ["rejected", "revoked", "expired"].includes(appStatus)
+        ? "danger"
+        : "warning",
   );
 </script>
 
@@ -62,11 +62,28 @@
   <!-- Top: QR + Details + Badges -->
   <div class="card-top">
     <!-- QR Code -->
-    {#if showQR && tab !== 'validation'}
+    {#if showQR && tab !== "validation"}
       <div class="qr-block">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="2.5"/>
+        <svg
+          width="28"
+          height="28"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <rect x="3" y="3" width="7" height="7" rx="1" /><rect
+            x="14"
+            y="3"
+            width="7"
+            height="7"
+            rx="1"
+          />
+          <rect x="3" y="14" width="7" height="7" rx="1" /><circle
+            cx="17.5"
+            cy="17.5"
+            r="2.5"
+          />
         </svg>
         <span>QR</span>
       </div>
@@ -77,7 +94,7 @@
       <table class="info-table">
         <tbody>
           {#each Object.entries(defaults) as [key, val]}
-            {#if val !== undefined && !['documents', 'owner', 'rejection_reason', 'status', 'crd', 'sgn', 'apv', 'sch', 'exp', 'dlv'].includes(key)}
+            {#if val !== undefined && !["documents", "owner", "rejection_reason", "status", "crd", "sgn", "apv", "sch", "exp", "dlv"].includes(key)}
               <tr>
                 <td class="info-key">{key}:</td>
                 <td class="info-val">{val}</td>
@@ -102,19 +119,39 @@
           <StatusBadge code="CRD" date={formatDate(data.crd)} />
         {/if}
         {#if data.sgn}
-          <StatusBadge code="SGN" date={formatDate(data.sgn)} variant="success" />
+          <StatusBadge
+            code="SGN"
+            date={formatDate(data.sgn)}
+            variant="success"
+          />
         {/if}
         {#if data.apv}
-          <StatusBadge code="APV" date={formatDate(data.apv)} variant="success" />
+          <StatusBadge
+            code="APV"
+            date={formatDate(data.apv)}
+            variant="success"
+          />
         {/if}
         {#if data.sch}
-          <StatusBadge code="SCH" date={formatDate(data.sch)} variant="warning" />
+          <StatusBadge
+            code="SCH"
+            date={formatDate(data.sch)}
+            variant="warning"
+          />
         {/if}
         {#if data.dlv}
-          <StatusBadge code="DLV" date={formatDate(data.dlv)} variant="success" />
+          <StatusBadge
+            code="DLV"
+            date={formatDate(data.dlv)}
+            variant="success"
+          />
         {/if}
         {#if data.exp}
-          <StatusBadge code="EXP" date={formatDate(data.exp)} variant="warning" />
+          <StatusBadge
+            code="EXP"
+            date={formatDate(data.exp)}
+            variant="warning"
+          />
         {/if}
       </div>
     </div>
@@ -123,7 +160,12 @@
   <!-- Document grid -->
   {#if showDocs}
     <div class="card-divider"></div>
-    <DocumentGrid role={role} owner={ownerVal} documents={defaults.documents || {}} onopen={(url) => showDocPopup = url} />
+    <DocumentGrid
+      {role}
+      owner={ownerVal}
+      documents={defaults.documents || {}}
+      onopen={(url) => (showDocPopup = url)}
+    />
   {/if}
 
   <!-- Extra slot (action bar, inputs etc.) -->
@@ -136,15 +178,32 @@
 {#if showDocPopup}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="doc-modal-overlay" onclick={() => showDocPopup = null}>
+  <div class="doc-modal-overlay" onclick={() => (showDocPopup = null)}>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="doc-modal-content" onclick={(e) => e.stopPropagation()}>
-      <button class="close-modal" onclick={() => showDocPopup = null}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <button class="close-modal" onclick={() => (showDocPopup = null)}>
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          ><line x1="18" y1="6" x2="6" y2="18" /><line
+            x1="6"
+            y1="6"
+            x2="18"
+            y2="18"
+          /></svg
+        >
       </button>
       <div class="doc-image-wrap">
-        <img src={showDocPopup} alt="Document Preview" class="doc-preview-img" />
+        <img
+          src={showDocPopup}
+          alt="Document Preview"
+          class="doc-preview-img"
+        />
       </div>
     </div>
   </div>
@@ -259,8 +318,11 @@
 
   .doc-modal-overlay {
     position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.65);
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.65);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -270,8 +332,12 @@
   }
 
   @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
   .doc-modal-content {
@@ -279,7 +345,7 @@
     border-radius: var(--radius-md);
     padding: 1.5rem;
     position: relative;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
     max-width: 92vw;
     max-height: 92vh;
     display: flex;
@@ -289,8 +355,14 @@
   }
 
   @keyframes slideUp {
-    from { transform: translateY(16px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+      transform: translateY(16px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
 
   .close-modal {
@@ -307,7 +379,9 @@
     justify-content: center;
     cursor: pointer;
     color: var(--text-secondary);
-    transition: background 0.15s, color 0.15s;
+    transition:
+      background 0.15s,
+      color 0.15s;
   }
 
   .close-modal:hover {
@@ -328,6 +402,6 @@
     max-height: 80vh;
     object-fit: contain;
     border-radius: var(--radius-sm);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 </style>

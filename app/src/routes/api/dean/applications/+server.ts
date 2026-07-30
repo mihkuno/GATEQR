@@ -4,25 +4,6 @@ import { db } from '$lib/server/db';
 import type { RowDataPacket } from 'mysql2';
 import { sendEmail } from '$lib/server/email';
 
-export const GET: RequestHandler = async ({ locals }) => {
-    if (!locals.user || locals.user.role !== 'dean') {
-        return json({ error: 'Unauthorized' }, { status: 403 });
-    }
-
-    try {
-        const [rows] = await db.query(`
-            SELECT * FROM registration 
-            WHERE department_id = ?
-            ORDER BY created_at DESC
-        `, [locals.user.department_id]);
-
-        return json({ applications: rows });
-    } catch (error) {
-        console.error('Failed to fetch dean applications:', error);
-        return json({ error: 'Internal Server Error' }, { status: 500 });
-    }
-};
-
 export const POST: RequestHandler = async ({ request, locals }) => {
     if (!locals.user || locals.user.role !== 'dean') {
         return json({ error: 'Unauthorized' }, { status: 403 });
