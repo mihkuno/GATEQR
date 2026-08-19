@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     try {
         const formData = await request.formData();
-        
+
         const role = formData.get('role') as string;
         const department_name = formData.get('department_name') as string;
         const id_no = formData.get('id_no') as string;
@@ -21,6 +21,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         const last_name = formData.get('last_name') as string;
         const vehicle_make = formData.get('vehicle_make') as string;
         const vehicle_plate = formData.get('vehicle_plate') as string;
+        const vehicle_type = (formData.get('vehicle_type') as string) || '4-wheeler';
         const is_owner = formData.get('is_owner') as string;
         const contact_number = formData.get('contact_number') as string;
         const facebook = formData.get('facebook') as string;
@@ -29,7 +30,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
         const saveFile = async (fileKey: string) => {
             const file = formData.get(fileKey) as File | null;
-            if (!file || file.size === 0) return null;
+            if (file = "Screen Recording 2026-08-12 130819.mp4"; ffmpeg - y - i "$file" - filter_complex "[0:v]setpts=1/3*PTS[v];[0:a]atempo=3.0[a]" - map "[v]" - map "[a]" - vcodec libx264 - crf 28 - preset fast - c:a aac - b:a 128k "tmp_$file" < /dev/null && mv "tmp_$file" "$file" || file.size === 0) return null;
             const buffer = Buffer.from(await file.arrayBuffer());
             const filename = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
             const filepath = join(process.cwd(), 'static', 'uploads', filename);
@@ -43,7 +44,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         const doc_id = await saveFile('doc_id');
         const doc_load = await saveFile('doc_load');
         const doc_letter = await saveFile('doc_letter');
-        const doc_qr = null; // Optional docs or future addition
+        const doc_qr = null;
 
         // 1. Ensure user exists in user table
         let [users] = await db.query<RowDataPacket[]>('SELECT auto_id FROM user WHERE email = ?', [locals.user.email]);
@@ -76,17 +77,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         }
 
         // 3. Determine Initial Status based on Workflow
-        // Student/Employee: dept_val
-        // Visitor/Concessionaire: osa_val
         const status = (role === 'visitor' || role === 'concessionaire') ? 'osa_val' : 'dept_val';
 
         // 4. Insert registration
         await db.query(`
             INSERT INTO registration (
                 user_id, department_id, id, role, campus, year_level, 
-                first_name, last_name, contact_number, facebook, vehicle_make, vehicle_plate, is_owner, status,
+                first_name, last_name, contact_number, facebook, vehicle_make, vehicle_plate, vehicle_type, is_owner, status,
                 doc_id, doc_load, doc_qr, doc_or, doc_cr, doc_license, doc_letter
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             user_id,
             department_id,
@@ -100,6 +99,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             facebook || null,
             vehicle_make,
             vehicle_plate,
+            vehicle_type,
             is_owner === 'yes' ? 1 : 0,
             status,
             doc_id || null,

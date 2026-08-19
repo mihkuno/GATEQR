@@ -21,11 +21,12 @@ CREATE TABLE IF NOT EXISTS `department` (
 
 -- Create registration table
 CREATE TABLE IF NOT EXISTS `registration` (
-    `auto_id` INT AUTO_INCREMENT,
+    `vehicle_id` INT AUTO_INCREMENT,
     `user_id` INT NOT NULL,
     `department_id` INT NULL, -- NULL for visitors
     `id` CHAR(20) NULL,
     `role` ENUM('student', 'employee', 'visitor', 'concessionaire') NOT NULL,
+    `vehicle_type` ENUM('2-Wheeler / Motorcycle', '4-Wheeler / Car') NOT NULL,
     `campus` ENUM('Liceo Main', 'RNP', 'PASEO') NOT NULL DEFAULT 'Liceo Main',
     `year_level` VARCHAR(50) NULL,
     `first_name` VARCHAR(100) NOT NULL,
@@ -52,7 +53,7 @@ CREATE TABLE IF NOT EXISTS `registration` (
     `doc_cr` VARCHAR(255) NOT NULL,
     `doc_license` VARCHAR(255) NOT NULL,
     `doc_letter` VARCHAR(255) NULL,
-    PRIMARY KEY (`auto_id`),
+    PRIMARY KEY (`vehicle_id`),
     CONSTRAINT `fk_registration_user` 
         FOREIGN KEY (`user_id`) REFERENCES `user` (`auto_id`) 
         ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -61,8 +62,8 @@ CREATE TABLE IF NOT EXISTS `registration` (
         ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Create entrylog table
-CREATE TABLE IF NOT EXISTS `entrylog` (
+-- Create Vehicle_Log table
+CREATE TABLE IF NOT EXISTS `Vehicle_Log` (
     `auto_id` INT AUTO_INCREMENT,
     `registration_id` INT NOT NULL,
     `in` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -73,8 +74,8 @@ CREATE TABLE IF NOT EXISTS `entrylog` (
     `logged_status` VARCHAR(255) NULL,     -- status at time of IN
     `logged_status_out` VARCHAR(255) NULL, -- status at time of OUT (independent)
     PRIMARY KEY (`auto_id`),
-    CONSTRAINT `fk_entrylog_registration` 
-        FOREIGN KEY (`registration_id`) REFERENCES `registration` (`auto_id`) 
+    CONSTRAINT `fk_Vehicle_Log_registration` 
+        FOREIGN KEY (`registration_id`) REFERENCES `registration` (`vehicle_id`) 
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
@@ -115,3 +116,11 @@ CREATE TABLE IF NOT EXISTS `complaint` (
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB;
+
+-- Create settings table
+CREATE TABLE IF NOT EXISTS `settings` (
+    `id` INT PRIMARY KEY,
+    `max_capacity` INT DEFAULT -1
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO `settings` (`id`, `max_capacity`) VALUES (1, -1);

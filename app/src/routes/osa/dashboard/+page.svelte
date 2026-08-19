@@ -5,6 +5,7 @@
     let { data } = $props();
 
     const navLinks = data.userRole === 'security' ? [
+        { label: 'Monitor', href: '/monitor' },
         { label: 'Complaints', href: '/osa/complaints', badge: data.unreadComplaints }
     ] : [
         { label: 'Applications', href: '/osa' },
@@ -12,7 +13,7 @@
     ];
 
     // ── Stats ────────────────────────────────────────────────────────────────
-    let statsData = $state(data.stats || { currentlyIn: 0, visitsToday: 0, registeredIn: 0, guestsIn: 0, anomaliesToday: 0 });
+    let statsData = $state((data.stats as any) || { currentlyIn: 0, visitsToday: 0, registeredIn: 0, guestsIn: 0, anomaliesToday: 0, maxCapacity: -1, total2Wheelers: 0, total4Wheelers: 0 });
     let roleBreakdown = $state(data.roleBreakdown || { student: 0, employee: 0, visitor: 0, concessionaire: 0, guest: 0 });
     let hourlyChart = $state(data.hourlyChart || Array(24).fill(0));
 
@@ -49,7 +50,40 @@
             color: '#d97706',
             bg: 'rgba(217,119,6,0.08)'
         },
+        {
+            label: 'Total 2-Wheelers',
+            value: statsData.total2Wheelers,
+            desc: 'Motorcycles currently inside',
+            icon: `<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a3.5 3.5 0 1 0-7 0"/><path d="M12 17.5V14l-3-3 4-3 3 3h3.5"/>`,
+            color: '#0ea5e9',
+            bg: 'rgba(14,165,233,0.08)'
+        },
+        {
+            label: 'Total 4-Wheelers',
+            value: statsData.total4Wheelers,
+            desc: 'Cars currently inside',
+            icon: `<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>`,
+            color: '#8b5cf6',
+            bg: 'rgba(139,92,246,0.08)'
+        }
     ]);
+
+    let maxCapacityInput = $state(statsData.maxCapacity);
+    let savingCapacity = $state(false);
+
+    async function saveCapacity() {
+        savingCapacity = true;
+        try {
+            await fetch('/api/settings', {
+                method: 'PUT',
+                body: JSON.stringify({ max_capacity: maxCapacityInput }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+            statsData.maxCapacity = maxCapacityInput;
+            alert('Capacity updated');
+        } catch(e) {}
+        savingCapacity = false;
+    }
 
     // ── Donut chart ──────────────────────────────────────────────────────────
     const donutSegments = $derived.by(() => {
@@ -96,6 +130,19 @@
     let loading       = $state(false);
 
     let searchTimer: ReturnType<typeof setTimeout> | null = null;
+
+    let activeTab = $state('all');
+
+    function selectTab(tab: string) {
+        activeTab = tab;
+        if (tab === 'all') selectedRoles = [...allRoles];
+        else if (tab === 'vip') {
+            selectedRoles = ['guest'];
+            searchQuery = 'VIP';
+        }
+        else selectedRoles = [tab];
+        currentPage = 1; fetchLogs();
+    }
 
     function toggleRole(role: string) {
         if (selectedRoles.includes(role)) {
@@ -154,6 +201,33 @@
     let modalImage = $state('');
     function openPhoto(url: string | null) { if (!url) return; modalImage = url; showModal = true; }
 
+    // ── Print table only ─────────────────────────────────────────────────────
+    function printTable() {
+        const tableEl = document.querySelector('.log-table') as HTMLElement | null;
+        if (!tableEl) return;
+        const win = window.open('', '_blank', 'width=900,height=700');
+        if (!win) return;
+        win.document.write(`
+            <!DOCTYPE html><html><head>
+            <title>Gate Logs — ${selectedDate}</title>
+            <style>
+                body { font-family: system-ui, sans-serif; margin: 1.5rem; color: #111; }
+                h2 { font-size: 1rem; margin-bottom: 0.5rem; color: #444; }
+                table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+                th { background: #f3f4f6; font-weight: 700; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; padding: 8px 10px; border-bottom: 2px solid #d1d5db; text-align: left; }
+                td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
+                tr:nth-child(even) td { background: #f9fafb; }
+            </style>
+            </head><body>
+            <h2>Gate Logs &nbsp;·&nbsp; ${selectedDate} &nbsp;·&nbsp; ${totalLogs} entries</h2>
+            ${tableEl.outerHTML}
+            </body></html>
+        `);
+        win.document.close();
+        win.focus();
+        setTimeout(() => { win.print(); win.close(); }, 400);
+    }
+
     // ── Hourly chart helpers ─────────────────────────────────────────────────
     const hourlyMax = $derived(Math.max(...hourlyChart, 1));
     const peakHour  = $derived(hourlyChart.indexOf(Math.max(...hourlyChart)));
@@ -206,6 +280,14 @@
         </div>
       </div>
     {/each}
+  </div>
+
+  <!-- ── Capacity Control ──────────────────────────────────────── -->
+  <div class="capacity-control">
+    <span class="cap-title">Campus Vehicle Capacity:</span>
+    <input type="number" bind:value={maxCapacityInput} class="cap-input" placeholder="-1 for No Limit" />
+    <button class="cap-btn" onclick={saveCapacity} disabled={savingCapacity}>{savingCapacity ? 'Saving...' : 'Save Capacity'}</button>
+    <span class="cap-desc">(Currently: {statsData.maxCapacity === -1 ? 'No Limit' : statsData.maxCapacity})</span>
   </div>
 
   <!-- ── Charts row ──────────────────────────────────────────── -->
@@ -280,6 +362,22 @@
           <span class="card-badge">{totalLogs} entries</span>
         {/if}
       </div>
+      <div class="header-right">
+        <button class="print-btn" onclick={printTable}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Print Records
+        </button>
+      </div>
+    </div>
+
+    <!-- Category Tabs -->
+    <div class="category-tabs">
+      <button class="tab-btn" class:active={activeTab === 'all'} onclick={() => selectTab('all')}>All</button>
+      <button class="tab-btn" class:active={activeTab === 'student'} onclick={() => selectTab('student')}>Student</button>
+      <button class="tab-btn" class:active={activeTab === 'employee'} onclick={() => selectTab('employee')}>Employee</button>
+      <button class="tab-btn" class:active={activeTab === 'visitor'} onclick={() => selectTab('visitor')}>Visitor</button>
+      <button class="tab-btn" class:active={activeTab === 'guest'} onclick={() => selectTab('guest')}>Guest</button>
+      <button class="tab-btn" class:active={activeTab === 'vip'} onclick={() => selectTab('vip')}>VIP</button>
     </div>
 
     <!-- Controls row -->
@@ -554,6 +652,48 @@
   }
   .header-left { display: flex; align-items: center; gap: 0.5rem; }
   .header-right { display: flex; align-items: center; gap: 0.5rem; }
+
+  /* ── Print / Tabs ────────────────────────────────────────────────────── */
+  .print-btn {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    background: var(--maroon); color: white;
+    border: none; border-radius: var(--radius-sm);
+    padding: 0.5rem 0.875rem; font-size: 0.8125rem; font-weight: 600;
+    cursor: pointer; transition: opacity 0.15s;
+  }
+  .print-btn:hover { opacity: 0.9; }
+
+  .category-tabs {
+    display: flex; gap: 0.5rem; padding: 0 1rem 0.5rem;
+    border-bottom: 1px solid var(--border); background: var(--surface);
+    overflow-x: auto;
+  }
+  .tab-btn {
+    background: none; border: none; padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem; font-weight: 600; color: var(--text-dim);
+    cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--maroon); border-bottom-color: var(--maroon); }
+
+  .capacity-control {
+    display: flex; align-items: center; gap: 0.75rem;
+    background: var(--surface); padding: 1rem; border-radius: var(--radius-md);
+    border: 1.5px solid var(--border); margin-bottom: 1rem; box-shadow: var(--shadow-sm);
+  }
+  .cap-title { font-weight: 600; font-size: 0.875rem; color: var(--text); }
+  .cap-input {
+    width: 100px; height: 32px; padding: 0 0.5rem; border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm); font-size: 0.875rem; outline: none;
+  }
+  .cap-input:focus { border-color: var(--maroon); }
+  .cap-btn {
+    background: var(--surface-hover); border: 1.5px solid var(--border);
+    padding: 0 1rem; height: 32px; border-radius: var(--radius-sm); font-weight: 600;
+    cursor: pointer; font-size: 0.8125rem;
+  }
+  .cap-btn:hover { background: var(--maroon); color: white; border-color: var(--maroon); }
+  .cap-desc { font-size: 0.75rem; color: var(--text-dim); }
 
   /* ── Controls ────────────────────────────────────────────────────────── */
   .controls-row {

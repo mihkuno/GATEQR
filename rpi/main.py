@@ -3,6 +3,7 @@ import time
 import requests
 import base64
 import threading
+import numpy as np
 from gpiozero import AngularServo, Device
 from collections import deque
 import re
@@ -102,6 +103,7 @@ class GateState:
     LOG_WARNING = "LOG_WARNING"  # Same-day double-in or double-out warning
     PROCESSING = "PROCESSING"   # QR detected, waiting for API response
     STATUS_REASON = "STATUS_REASON" # Ask reason for anomaly entry
+    CAMPUS_FULL = "CAMPUS_FULL"
 
 class SideState:
     def __init__(self, gate_type):
@@ -128,6 +130,7 @@ side_out = SideState('out')
 global_stats = {"currentlyIn": 0, "visitsToday": 0}
 global_logs = []
 current_date_filter = time.strftime("%Y-%m-%d")
+log_scroll_offset = 0
 
 # ==============================================================================
 # API HELPERS
@@ -315,9 +318,20 @@ from pyzbar.pyzbar import decode
 # UI RENDERING & MOUSE
 # ==============================================================================
 W, H = 1280, 720
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, W)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
+cap1 = cv2.VideoCapture(0)
+has_cam1 = cap1.isOpened()
+if has_cam1:
+    cap1.set(cv2.CAP_PROP_FRAME_WIDTH, W)
+    cap1.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
+
+cap2 = cv2.VideoCapture(1)
+if cap2.isOpened():
+    cap2.set(cv2.CAP_PROP_FRAME_WIDTH, W)
+    cap2.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
+    has_dual_cam = True
+else:
+    has_dual_cam = False
+    cap2.release()
 
 # Helpers for drawing
 def draw_text(img, text, pos, scale=0.6, color=(255,255,255), thick=1):
@@ -352,9 +366,15 @@ def render_side(img, side, offset_x):
         cv2.rectangle(overlay, (cx, max(0, line_y - 30)), (cx + W//2, line_y), (0, 255, 0), -1)
         cv2.addWeighted(overlay, 0.2, img, 0.8, 0, img)
 
-        draw_text(img, "READY TO SCAN", (cx + 20, 80), 0.8, (0, 255, 0), 2)
+        draw_text(img, "No QR Code Detected", (cx + 20, 80), 0.8, (0, 255, 255), 2)
         draw_text(img, "Hold QR code anywhere in this area", (cx + 20, 110), 0.6)
         draw_btn(img, (cx + W//2 - 160, H//2 - 60, 150, 50), "MANUAL OPEN", (0,140,255))
+
+        if side.type == 'in':
+            max_cap = global_stats.get('maxCapacity', -1)
+            curr_in = global_stats.get('currentlyIn', 0)
+            if max_cap != -1 and curr_in >= max_cap:
+                side.state = GateState.CAMPUS_FULL
     
     elif side.state == GateState.DETECTED:
         draw_text(img, f"Reg ID: {side.data['id']}", (cx + 20, 80), 0.8)
@@ -412,10 +432,23 @@ def render_side(img, side, offset_x):
         draw_btn(img, (cx + 20, H//2 - 70, 150, 50), "FORCE CLOSE", (0,0,200))
         if rem == 0: close_gate(side)
         
+    elif side.state == GateState.CAMPUS_FULL:
+        draw_text(img, "CAMPUS FULL", (cx + 20, 80), 1.0, (0,0,255), 3)
+        draw_text(img, f"Currently In: {global_stats.get('currentlyIn', 0)} / {global_stats.get('maxCapacity', -1)}", (cx + 20, 120), 0.7)
+        draw_btn(img, (cx + 20, H//2 - 70, 230, 50), "OVERRIDE (LET IN)", (0,140,255))
+        draw_btn(img, (cx + 260, H//2 - 70, 150, 50), "VIP ACCESS", (200,50,200))
+        
+        # Check if capacity clears
+        max_cap = global_stats.get('maxCapacity', -1)
+        curr_in = global_stats.get('currentlyIn', 0)
+        if max_cap == -1 or curr_in < max_cap:
+            side.state = GateState.SCANNING
+
     elif side.state == GateState.MANUAL_TYPE:
         draw_text(img, "MANUAL ENTRY", (cx + 20, 80), 0.8, (255,255,255), 2)
-        draw_btn(img, (cx + 20, 110, 180, 50), "REGISTERED ID", (150,100,50))
-        draw_btn(img, (cx + 210, 110, 150, 50), "GUEST", (100,150,50))
+        draw_btn(img, (cx + 20, 110, 120, 50), "REG ID", (150,100,50))
+        draw_btn(img, (cx + 150, 110, 100, 50), "GUEST", (100,150,50))
+        draw_btn(img, (cx + 260, 110, 150, 50), "VIP ACCESS", (200,50,200))
         draw_btn(img, (cx + 20, H//2 - 70, 100, 50), "CANCEL", (100,100,100))
         
     elif side.state == GateState.MANUAL_REG:
@@ -465,16 +498,28 @@ def render_side(img, side, offset_x):
         draw_btn(img, (cx + 280, H//2 - 70, 100, 50), "SKIP", (0,0,200))
 
 def mouse_callback(event, x, y, flags, param):
+    global log_scroll_offset, current_date_filter
+    
+    if event == cv2.EVENT_MOUSEWHEEL:
+        if x > W//2 and y > H//2: # Only scroll if hovering over logs area
+            max_visible = 8
+            max_offset = max(0, len(global_logs) - max_visible)
+            if flags > 0: # Scroll up
+                log_scroll_offset = max(0, log_scroll_offset - 1)
+            else: # Scroll down
+                log_scroll_offset = min(max_offset, log_scroll_offset + 1)
+        return
+        
     if event != cv2.EVENT_LBUTTONDOWN: return
     
     # Bottom Left - Filter
     if in_rect(x, y, (20, H - 60, 120, 40)):
         print("Filter clicked") # In a real app, open a date picker. We'll just toggle today/yesterday for demo
-        global current_date_filter
         if current_date_filter == time.strftime("%Y-%m-%d"):
             current_date_filter = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400))
         else:
             current_date_filter = time.strftime("%Y-%m-%d")
+        log_scroll_offset = 0 # reset scroll
         return
         
     # Check sides
@@ -543,11 +588,25 @@ def mouse_callback(event, x, y, flags, param):
             if in_rect(x, y, (cx + 20, H//2 - 70, 150, 50)):
                 close_gate(side)
                 
+        elif side.state == GateState.CAMPUS_FULL:
+            if in_rect(x, y, (cx + 20, H//2 - 70, 230, 50)):
+                side.form_data = ["Override", "N/A", "Campus Full Override"]
+                submit_manual_guest(side)
+            elif in_rect(x, y, (cx + 260, H//2 - 70, 150, 50)):
+                side.form_data = ["VIP", "VIP", "VIP Access"]
+                submit_manual_guest(side)
+                
         elif side.state == GateState.MANUAL_TYPE:
-            if in_rect(x, y, (cx + 20, 110, 180, 50)): # REG
+            if in_rect(x, y, (cx + 20, 110, 120, 50)): # REG
                 side.state = GateState.MANUAL_REG
-            elif in_rect(x, y, (cx + 210, 110, 150, 50)): # GUEST
+            elif in_rect(x, y, (cx + 150, 110, 100, 50)): # GUEST
                 side.state = GateState.MANUAL_GUEST_IN if side.type == 'in' else GateState.MANUAL_GUEST_OUT
+            elif in_rect(x, y, (cx + 260, 110, 150, 50)): # VIP
+                if side.type == 'in':
+                    side.form_data = ["VIP", "VIP", "VIP Access"]
+                    submit_manual_guest(side)
+                else:
+                    open_gate(side)
             elif in_rect(x, y, (cx + 20, H//2 - 70, 100, 50)):
                 close_gate(side)
                 
@@ -588,19 +647,39 @@ cv2.setWindowProperty("GateQR Dashboard", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FU
 cv2.setMouseCallback("GateQR Dashboard", mouse_callback)
 
 while True:
-    ret, frame = cap.read()
-    if not ret: break
-    
-    # We will simulate a split camera by cropping the frame into two halves
-    # Since we only have 1 physical camera, we mirror it or just split the FOV
-    frame = cv2.resize(frame, (W, H//2))
-    
-    display = cv2.resize(frame, (W, H)) # background
-    display[0:H//2, 0:W] = frame
-    display[H//2:H, 0:W] = (30,30,30) # Dark bg for bottom half
+    if has_dual_cam:
+        ret1, frame1 = cap1.read()
+        ret2, frame2 = cap2.read()
+        if not ret1 or not ret2: break
+        
+        frame1 = cv2.resize(frame1, (W//2, H//2))
+        frame2 = cv2.resize(frame2, (W//2, H//2))
+        
+        display = cv2.resize(frame1, (W, H)) # base
+        display[0:H//2, 0:W//2] = frame1
+        display[0:H//2, W//2:W] = frame2
+        display[H//2:H, 0:W] = (30,30,30)
+
+        crops = [(side_in, 0, frame1), (side_out, W//2, frame2)]
+    else:
+        if has_cam1:
+            ret, frame = cap1.read()
+            if not ret: break
+        else:
+            frame = np.zeros((H, W, 3), dtype=np.uint8)
+            cv2.putText(frame, "NO CAMERA DETECTED (MOCK PREVIEW)", (W//2 - 250, H//2 - 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            time.sleep(0.05)
+            
+        frame = cv2.resize(frame, (W, H//2))
+        
+        display = cv2.resize(frame, (W, H))
+        display[0:H//2, 0:W] = frame
+        display[H//2:H, 0:W] = (30,30,30)
+
+        crops = [(side_in, 0, frame[:, 0:W//2]), (side_out, W//2, frame[:, W//2:W])]
 
     # Process QR for both sides if scanning
-    for side, cx, crop in [(side_in, 0, frame[:, 0:W//2]), (side_out, W//2, frame[:, W//2:W])]:
+    for side, cx, crop in crops:
         side.latest_crop = crop.copy()
         if side.state == GateState.SCANNING:
             decoded_objects = decode(crop)
@@ -618,16 +697,29 @@ while True:
     # Render Bottom Left (Dashboard)
     cv2.rectangle(display, (0, H//2), (W//2, H), (40,40,40), -1)
     draw_text(display, "STATS DASHBOARD", (20, H//2 + 40), 1.0, (200,200,200), 2)
-    draw_text(display, f"Currently In: {global_stats.get('currentlyIn', 0)}", (20, H//2 + 90), 0.8)
+    max_cap = global_stats.get('maxCapacity', -1)
+    cap_str = str(max_cap) if max_cap != -1 else "No Limit"
+    draw_text(display, f"Currently In: {global_stats.get('currentlyIn', 0)} / {cap_str}", (20, H//2 + 90), 0.8)
     draw_text(display, f"Visits Today: {global_stats.get('visitsToday', 0)}", (20, H//2 + 130), 0.8)
     draw_btn(display, (20, H - 60, 120, 40), "FILTER", (100,100,100))
     draw_text(display, f"Date: {current_date_filter}", (150, H - 35), 0.6)
 
     # Render Bottom Right (Table)
     cv2.rectangle(display, (W//2, H//2), (W, H), (50,50,50), -1)
-    draw_text(display, "LOGS TABLE", (W//2 + 20, H//2 + 40), 1.0, (200,200,200), 2)
+    draw_text(display, "LOGS TABLE (Scroll to view)", (W//2 + 20, H//2 + 40), 1.0, (200,200,200), 2)
     y_off = H//2 + 80
-    for i, log in enumerate(global_logs[:5]): # show top 5
+    max_visible_logs = 8
+    
+    # Render scrollbar track
+    if len(global_logs) > max_visible_logs:
+        cv2.rectangle(display, (W - 15, H//2 + 70), (W - 5, H - 20), (30,30,30), -1)
+        scroll_h = max(20, int((max_visible_logs / len(global_logs)) * (H//2 - 90)))
+        max_offset = max(1, len(global_logs) - max_visible_logs)
+        scroll_y = H//2 + 70 + int((log_scroll_offset / max_offset) * (H//2 - 90 - scroll_h))
+        cv2.rectangle(display, (W - 15, scroll_y), (W - 5, scroll_y + scroll_h), (150,150,150), -1)
+
+    visible_logs = global_logs[log_scroll_offset : log_scroll_offset + max_visible_logs]
+    for i, log in enumerate(visible_logs):
         draw_text(display, f"{log['time']} | {log['bound']} | {log['name']} | {log['plate']}", (W//2 + 20, y_off + i*35), 0.6)
 
     cv2.imshow("GateQR Dashboard", display)
@@ -648,5 +740,6 @@ while True:
                 if key == 8: side.form_data[idx] = side.form_data[idx][:-1]
                 elif char.isprintable(): side.form_data[idx] += char
 
-cap.release()
+cap1.release()
+if has_dual_cam: cap2.release()
 cv2.destroyAllWindows()

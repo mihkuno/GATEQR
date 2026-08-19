@@ -44,8 +44,14 @@
 	"/api/gate/stats": [
 		"src/routes/api/gate/stats/+server.ts"
 	],
+	"/api/monitor/revoke": [
+		"src/routes/api/monitor/revoke/+server.ts"
+	],
 	"/api/osa/applications": [
 		"src/routes/api/osa/applications/+server.ts"
+	],
+	"/api/settings": [
+		"src/routes/api/settings/+server.ts"
 	],
 	"/complaints": [
 		"src/routes/complaints/+page.server.ts"
@@ -55,6 +61,9 @@
 	],
 	"/entry": [],
 	"/login": [],
+	"/monitor": [
+		"src/routes/monitor/+page.server.ts"
+	],
 	"/osa": [
 		"src/routes/osa/+page.server.ts"
 	],

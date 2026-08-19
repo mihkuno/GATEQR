@@ -16,6 +16,7 @@
     let contact_number = $state('');
     let facebook = $state('');
     let vehicle = $state('');
+    let vehicle_type = $state('');
     let plate = $state('');
     let idno = $state('');
     let loading = $state(false);
@@ -52,7 +53,7 @@
 
     let canProceed = $derived((() => {
         if (section === 1) {
-            if (!fname || !lname || !contact_number || !vehicle || !plate || !role || !campus) return false;
+            if (!fname || !lname || !contact_number || !vehicle || !vehicle_type || !plate || !role || !campus) return false;
             if (['student', 'employee'].includes(role) && (!dept || !idno)) return false;
             if (role === 'student' && !year_level) return false;
             return true;
@@ -98,7 +99,7 @@
     ];
 
     async function handleSubmit() {
-        if (!fname || !lname || !contact_number || !vehicle || !plate || !role) {
+        if (!fname || !lname || !contact_number || !vehicle || !vehicle_type || !plate || !role) {
             alert('Please fill out all required fields.');
             return;
         }
@@ -114,6 +115,7 @@
             formData.append('contact_number', contact_number);
             formData.append('facebook', facebook);
             formData.append('vehicle_make', vehicle);
+            formData.append('vehicle_type', vehicle_type);
             formData.append('vehicle_plate', plate);
             formData.append('is_owner', owner);
             formData.append('campus', campus);
@@ -207,9 +209,19 @@
         </div>
       </div>
 
-      <div class="field-group">
-        <label class="field-label" for="vehicle">Vehicle make & model</label>
-        <input id="vehicle" type="text" placeholder="e.g. Honda Civic 2022" bind:value={vehicle} />
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label" for="vehicle">Vehicle make & model</label>
+          <input id="vehicle" type="text" placeholder="e.g. Honda Civic 2022" bind:value={vehicle} />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="vehicle_type">Vehicle Type</label>
+          <select id="vehicle_type" bind:value={vehicle_type} class:placeholder-sel={!vehicle_type}>
+            <option value="" disabled hidden selected>Select type</option>
+            <option value="2-Wheeler / Motorcycle">2-Wheeler / Motorcycle</option>
+            <option value="4-Wheeler / Car">4-Wheeler / Car</option>
+          </select>
+        </div>
       </div>
 
       <div class="field-group">

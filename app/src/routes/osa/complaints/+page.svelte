@@ -6,7 +6,11 @@
 
     let { data } = $props();
 
-    const allNavLinks = [
+    const allNavLinks = data.userRole === 'security' ? [
+        { label: 'Dashboard', href: '/osa/dashboard' },
+        { label: 'Monitor', href: '/monitor' },
+        { label: 'Complaints', href: '/osa/complaints', badge: data.unreadComplaints }
+    ] : [
         { label: 'Dashboard', href: '/osa/dashboard' },
         { label: 'Complaints', href: '/osa/complaints', badge: data.unreadComplaints }
     ];

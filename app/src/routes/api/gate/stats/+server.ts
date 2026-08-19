@@ -16,11 +16,11 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
     }
 
     try {
-        const [inRows] = await db.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM entrylog WHERE `out` IS NULL');
+        const [inRows] = await db.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM Vehicle_Log WHERE `out` IS NULL');
         const currentlyIn = inRows[0].count;
 
         const [todayRows] = await db.query<RowDataPacket[]>(
-            'SELECT COUNT(*) as count FROM entrylog WHERE DATE(`in`) = CURDATE()'
+            'SELECT COUNT(*) as count FROM Vehicle_Log WHERE DATE(`in`) = CURDATE()'
         );
         const visitsToday = todayRows[0].count;
 
@@ -36,7 +36,7 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
 
         // Anomalies today (registered + guest entries with a logged_status)
         const [anomalyRegRows] = await db.query<RowDataPacket[]>(
-            `SELECT COUNT(*) as count FROM entrylog WHERE DATE(\`in\`) = CURDATE() AND (logged_status IS NOT NULL AND logged_status != '')`
+            `SELECT COUNT(*) as count FROM Vehicle_Log WHERE DATE(\`in\`) = CURDATE() AND (logged_status IS NOT NULL AND logged_status != '')`
         );
         const [anomalyGuestRows] = await db.query<RowDataPacket[]>(
             `SELECT COUNT(*) as count FROM guestlog WHERE DATE(\`in\`) = CURDATE() AND (logged_status IS NOT NULL AND logged_status != '')`
@@ -46,8 +46,8 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
         // Role breakdown for today (registered entries only)
         const [roleBreakdownRows] = await db.query<RowDataPacket[]>(`
             SELECT r.role, COUNT(*) as count
-            FROM entrylog e
-            JOIN registration r ON e.registration_id = r.auto_id
+            FROM Vehicle_Log e
+            JOIN registration r ON e.registration_id = r.vehicle_id
             WHERE DATE(e.\`in\`) = CURDATE()
             GROUP BY r.role
         `);
@@ -57,7 +57,7 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
         // Hourly breakdown for today (entries only)
         const [hourlyRows] = await db.query<RowDataPacket[]>(
             `SELECT HOUR(\`in\`) as hour, COUNT(*) as count 
-             FROM entrylog 
+             FROM Vehicle_Log 
              WHERE DATE(\`in\`) = CURDATE() 
              GROUP BY HOUR(\`in\`)`
         );
@@ -73,13 +73,38 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
         hourlyRows.forEach(row => { hourlyData[row.hour] += row.count; });
         guestHourlyRows.forEach(row => { hourlyData[row.hour] += row.count; });
 
+        const [settingsRows] = await db.query<RowDataPacket[]>('SELECT max_capacity FROM settings WHERE id = 1');
+        const maxCapacity = settingsRows.length > 0 ? settingsRows[0].max_capacity : -1;
+
+        // Vehicle classification breakdown (currently in)
+        const [vehicleTypeRows] = await db.query<RowDataPacket[]>(`
+            SELECT r.vehicle_type, COUNT(*) as count
+            FROM Vehicle_Log e
+            JOIN registration r ON e.registration_id = r.vehicle_id
+            WHERE e.\`out\` IS NULL
+            GROUP BY r.vehicle_type
+        `);
+        
+        let total_2_wheelers = 0;
+        let total_4_wheelers = 0;
+        vehicleTypeRows.forEach(row => {
+            if (row.vehicle_type && row.vehicle_type.includes('2-Wheeler')) {
+                total_2_wheelers += row.count;
+            } else if (row.vehicle_type && row.vehicle_type.includes('4-Wheeler')) {
+                total_4_wheelers += row.count;
+            }
+        });
+
         return json({
             stats: {
                 currentlyIn: totalCurrentlyIn,
                 visitsToday: totalVisitsToday,
                 registeredIn: currentlyIn,
                 guestsIn: guestCurrentlyIn,
-                anomaliesToday
+                anomaliesToday,
+                maxCapacity,
+                total2Wheelers: total_2_wheelers,
+                total4Wheelers: total_4_wheelers
             },
             roleBreakdown,
             hourlyChart: hourlyData

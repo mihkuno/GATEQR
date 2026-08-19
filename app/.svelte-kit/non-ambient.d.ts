@@ -29,7 +29,7 @@ declare module "$app/types" {
 	type MatcherParam<M> = M extends (param : string) => param is (infer U extends string) ? U : string;
 
 	export interface AppTypes {
-		RouteId(): "/" | "/api" | "/api/apply" | "/api/auth" | "/api/auth/login" | "/api/auth/logout" | "/api/auth/verify" | "/api/complaints" | "/api/complaints/[id]" | "/api/dean" | "/api/dean/applications" | "/api/departments" | "/api/gate" | "/api/gate/entry" | "/api/gate/exit" | "/api/gate/logs" | "/api/gate/lookup" | "/api/gate/manual" | "/api/gate/stats" | "/api/osa" | "/api/osa/applications" | "/complaints" | "/dean" | "/entry" | "/login" | "/osa" | "/osa/complaints" | "/osa/dashboard" | "/osa/departments" | "/otp" | "/status";
+		RouteId(): "/" | "/api" | "/api/apply" | "/api/auth" | "/api/auth/login" | "/api/auth/logout" | "/api/auth/verify" | "/api/complaints" | "/api/complaints/[id]" | "/api/dean" | "/api/dean/applications" | "/api/departments" | "/api/gate" | "/api/gate/capacity" | "/api/gate/entry" | "/api/gate/exit" | "/api/gate/logs" | "/api/gate/lookup" | "/api/gate/manual" | "/api/gate/stats" | "/api/gate/vip" | "/api/monitor" | "/api/monitor/revoke" | "/api/osa" | "/api/osa/applications" | "/api/osa/monitor" | "/api/osa/revoke" | "/api/settings" | "/complaints" | "/dean" | "/entry" | "/login" | "/monitor" | "/osa" | "/osa/complaints" | "/osa/dashboard" | "/osa/departments" | "/osa/monitor" | "/otp" | "/status";
 		RouteParams(): {
 			"/api/complaints/[id]": { id: string }
 		};
@@ -47,26 +47,35 @@ declare module "$app/types" {
 			"/api/dean/applications": Record<string, never>;
 			"/api/departments": Record<string, never>;
 			"/api/gate": Record<string, never>;
+			"/api/gate/capacity": Record<string, never>;
 			"/api/gate/entry": Record<string, never>;
 			"/api/gate/exit": Record<string, never>;
 			"/api/gate/logs": Record<string, never>;
 			"/api/gate/lookup": Record<string, never>;
 			"/api/gate/manual": Record<string, never>;
 			"/api/gate/stats": Record<string, never>;
+			"/api/gate/vip": Record<string, never>;
+			"/api/monitor": Record<string, never>;
+			"/api/monitor/revoke": Record<string, never>;
 			"/api/osa": Record<string, never>;
 			"/api/osa/applications": Record<string, never>;
+			"/api/osa/monitor": Record<string, never>;
+			"/api/osa/revoke": Record<string, never>;
+			"/api/settings": Record<string, never>;
 			"/complaints": Record<string, never>;
 			"/dean": Record<string, never>;
 			"/entry": Record<string, never>;
 			"/login": Record<string, never>;
+			"/monitor": Record<string, never>;
 			"/osa": Record<string, never>;
 			"/osa/complaints": Record<string, never>;
 			"/osa/dashboard": Record<string, never>;
 			"/osa/departments": Record<string, never>;
+			"/osa/monitor": Record<string, never>;
 			"/otp": Record<string, never>;
 			"/status": Record<string, never>
 		};
-		Pathname(): "/" | "/api/apply" | "/api/auth/login" | "/api/auth/logout" | "/api/auth/verify" | "/api/complaints" | `/api/complaints/${string}` & {} | "/api/dean/applications" | "/api/departments" | "/api/gate/entry" | "/api/gate/exit" | "/api/gate/logs" | "/api/gate/lookup" | "/api/gate/manual" | "/api/gate/stats" | "/api/osa/applications" | "/complaints" | "/dean" | "/entry" | "/login" | "/osa" | "/osa/complaints" | "/osa/dashboard" | "/osa/departments" | "/otp" | "/status";
+		Pathname(): "/" | "/api/apply" | "/api/apply/" | "/api/auth/login" | "/api/auth/logout" | "/api/auth/verify" | "/api/complaints" | `/api/complaints/${string}` & {} | "/api/dean/applications" | "/api/departments" | "/api/gate/entry" | "/api/gate/exit" | "/api/gate/logs" | "/api/gate/lookup" | "/api/gate/manual" | "/api/gate/stats" | "/api/monitor/revoke" | "/api/osa/applications" | "/api/settings" | "/complaints" | "/dean" | "/entry" | "/login" | "/monitor" | "/osa" | "/osa/complaints" | "/osa/dashboard" | "/osa/departments" | "/otp" | "/status";
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
 		Asset(): "/robots.txt" | "/uploads/1785383300996-2js0obc-Cainday.png" | "/uploads/1785383300996-6b6n5jv-Screenshot__23_.png" | "/uploads/1785383300998-nsuelbs-Screenshot__1_.png" | "/uploads/1785385643087-xrpqmrw-Cainday.png" | "/uploads/1785385643088-s7bpbvj-Cainday.png" | "/uploads/1785385643090-vr0xd2g-Screenshot__1_.png" | "/uploads/1785385840230-nm1o5dd-Cainday.png" | "/uploads/1785385840230-wb9luiw-Cainday.png" | "/uploads/1785385840231-6ih9fhf-Cainday.png" | "/uploads/1785388702906-0wle14p-Screenshot__10_.png" | "/uploads/1785388702906-ubzebw2-Cainday.png" | "/uploads/1785388702907-lbkhmrv-Screenshot__1_.png" | "/uploads/1785388878168-edrtv6o-Screenshot__10_.png" | "/uploads/1785388878168-jyrci3b-Cainday.png" | "/uploads/1785388878169-w34ihpa-Screenshot__1_.png" | "/uploads/1785389031381-ez8wu7v-Screenshot__10_.png" | "/uploads/1785389031382-58qyxy8-Cainday.png" | "/uploads/1785389031383-0j9tw1a-Screenshot__1_.png" | "/uploads/1785389237141-k033rgk-Cainday.png" | "/uploads/1785389237142-gdmym98-Cainday.png" | "/uploads/1785389237142-nx557wx-Cainday.png" | "/uploads/1785400834143-33sek0e-Cainday.png" | "/uploads/1785400834143-901fh5b-Cainday.png" | "/uploads/1785400834143-dwx1naw-Cainday.png" | "/uploads/qr-1-1785385470270.png" | "/uploads/qr-1-1785405020563.png" | "/uploads/qr-4-1785388901425.png" | "/uploads/qr-5-1785389043772.png" | "/uploads/qr-6-1785389251428.png" | string & {};
 	}

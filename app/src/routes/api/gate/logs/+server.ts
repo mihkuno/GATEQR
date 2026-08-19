@@ -50,8 +50,8 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
                     r.vehicle_plate, 
                     r.role,
                     'registered' as log_type
-                FROM entrylog e
-                JOIN registration r ON e.registration_id = r.auto_id
+                FROM Vehicle_Log e
+                JOIN registration r ON e.registration_id = r.vehicle_id
                 WHERE (DATE(e.\`in\`) = ${dateFilter} OR (e.\`out\` IS NOT NULL AND DATE(e.\`out\`) = ${dateFilter}))
                 ${regRoleCsv ? 'AND FIND_IN_SET(r.role, ?)' : ''}
                 ${campusFilter !== 'all' ? 'AND r.campus = ?' : ''}

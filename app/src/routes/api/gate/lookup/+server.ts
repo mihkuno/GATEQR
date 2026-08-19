@@ -29,7 +29,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
                  FROM registration r
                  LEFT JOIN user u ON r.user_id = u.auto_id
                  LEFT JOIN department d ON r.department_id = d.auto_id
-                 WHERE r.auto_id = ?`,
+                 WHERE r.vehicle_id = ?`,
                 [autoId]
             );
             if (rows.length > 0) reg = rows[0];
@@ -51,11 +51,11 @@ export const GET: RequestHandler = async ({ request, url }) => {
 
         const [logRows] = await db.query<RowDataPacket[]>(
             `SELECT auto_id, \`in\`, \`out\`
-             FROM entrylog
+             FROM Vehicle_Log
              WHERE registration_id = ?
              ORDER BY \`in\` DESC
              LIMIT 1`,
-            [reg.auto_id]
+            [reg.vehicle_id]
         );
 
         let lastLog = null;

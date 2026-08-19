@@ -46,20 +46,20 @@ export const POST: RequestHandler = async ({ request }) => {
 
         // Find the most recent open entrylog for this registration
         const [rows] = await db.query<RowDataPacket[]>(
-            `SELECT auto_id FROM entrylog WHERE registration_id = ? AND \`out\` IS NULL ORDER BY \`in\` DESC LIMIT 1`,
+            `SELECT auto_id FROM Vehicle_Log WHERE registration_id = ? AND \`out\` IS NULL ORDER BY \`in\` DESC LIMIT 1`,
             [registration_id]
         );
 
         if (rows.length > 0) {
             // Update existing open entry log with OUT time, photo, and OUT-time status
             await db.query(
-                `UPDATE entrylog SET \`out\` = CURRENT_TIMESTAMP, pic_out = ?, logged_status_out = ? WHERE auto_id = ?`,
+                `UPDATE Vehicle_Log SET \`out\` = CURRENT_TIMESTAMP, pic_out = ?, logged_status_out = ? WHERE auto_id = ?`,
                 [picUrl, logged_status || null, rows[0].auto_id]
             );
         } else {
             // No open entry log found — create a standalone OUT row
             await db.query(
-                `INSERT INTO entrylog (registration_id, \`out\`, pic_out, logged_status_out) VALUES (?, CURRENT_TIMESTAMP, ?, ?)`,
+                `INSERT INTO Vehicle_Log (registration_id, \`out\`, pic_out, logged_status_out) VALUES (?, CURRENT_TIMESTAMP, ?, ?)`,
                 [registration_id, picUrl, logged_status || null]
             );
         }

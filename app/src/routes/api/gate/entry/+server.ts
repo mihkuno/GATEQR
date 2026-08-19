@@ -47,7 +47,7 @@ export const POST: RequestHandler = async ({ request }) => {
         }
 
         await db.query(
-            `INSERT INTO entrylog (registration_id, pic_in, logged_status, reason) VALUES (?, ?, ?, ?)`,
+            `INSERT INTO Vehicle_Log (registration_id, pic_in, logged_status, reason) VALUES (?, ?, ?, ?)`,
             [registration_id, picUrl, logged_status || null, reason || null]
         );
 
