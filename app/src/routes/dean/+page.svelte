@@ -240,7 +240,7 @@
           <ActionBar
             {tab}
             status={app.status}
-            onaction={(action) => handleAction(app.auto_id, action)}
+            onaction={(action) => handleAction(app.vehicle_id, action)}
           />
         {/snippet}
       </ApplicationCard>

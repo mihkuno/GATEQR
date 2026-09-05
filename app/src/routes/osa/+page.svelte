@@ -252,7 +252,7 @@
               <a href={app.doc_qr} download>Download</a>
             </div>
           {/if}
-          <ActionBar {tab} status={app.status} expiresAt={app.expires_at} onaction={(action) => handleAction(app.auto_id, action)} />
+          <ActionBar {tab} status={app.status} expiresAt={app.expires_at} onaction={(action) => handleAction(app.vehicle_id, action)} />
         {/snippet}
       </ApplicationCard>
     {:else}
