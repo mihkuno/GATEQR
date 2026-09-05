@@ -150,19 +150,29 @@ def img_to_b64(img):
     _, buffer = cv2.imencode('.jpg', img)
     return "data:image/jpeg;base64," + base64.b64encode(buffer).decode('utf-8')
 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+api_session = requests.Session()
+retries = Retry(total=2, backoff_factor=0.2, status_forcelist=[ 500, 502, 503, 504 ])
+api_session.mount('http://', HTTPAdapter(max_retries=retries))
+api_session.mount('https://', HTTPAdapter(max_retries=retries))
+
 def poll_api():
     global global_stats, global_logs
     while True:
         try:
-            r1 = requests.get(f"{API_BASE}/stats", headers=headers(), timeout=5)
+            r1 = api_session.get(f"{API_BASE}/stats", headers=headers(), timeout=5)
             if r1.status_code == 200:
                 global_stats = r1.json().get("stats", global_stats)
             
-            r2 = requests.get(f"{API_BASE}/logs?date={current_date_filter}", headers=headers(), timeout=5)
+            r2 = api_session.get(f"{API_BASE}/logs?date={current_date_filter}", headers=headers(), timeout=5)
             if r2.status_code == 200:
                 global_logs = r2.json().get("logs", [])
+        except requests.exceptions.RequestException:
+            print("API Polling error: Connection timed out or server unreachable.")
         except Exception as e:
-            print("API Polling error:", e)
+            print(f"API Polling error: {type(e).__name__}")
         time.sleep(5)
 
 threading.Thread(target=poll_api, daemon=True).start()
@@ -198,7 +208,7 @@ def process_qr(side, qr_text, frame):
         # Wait 1 second before capturing snapshot so the QR is fully in frame
         time.sleep(1)
         side.snapshot = frame.copy()
-        r = requests.get(f"{API_BASE}/lookup?qr={qr_text}", headers=headers(), timeout=5)
+        r = api_session.get(f"{API_BASE}/lookup?qr={qr_text}", headers=headers(), timeout=5)
         if r.status_code == 404:
             side.state = GateState.INVALID_QR
             side.data = qr_text
@@ -262,23 +272,30 @@ def process_qr(side, qr_text, frame):
         side.snapshot = frame.copy()
 
 def submit_entry_exit(side, acknowledge=False):
-    action = 'entry' if side.type == 'in' else 'exit'
-    endpoint = f"{API_BASE}/{action}"
-    payload = {
-        "registration_id": side.data['auto_id'],
-        "pic_base64": img_to_b64(side.snapshot),
-        "logged_status": getattr(side, 'logged_status', None),  # always record current status at scan time
-        "reason": side.form_data[0].strip() if side.state == GateState.STATUS_REASON else None
-    }
-    if acknowledge and side.anomaly_id:
-        payload["acknowledge_auto_id"] = side.anomaly_id
-        
-    try:
-        requests.post(endpoint, json=payload, headers=headers(), timeout=5)
-        open_gate(side)
-    except Exception as e:
-        side.state = GateState.API_ERROR
-        side.api_error = "Failed to submit: " + str(e)
+    # Capture reason before state change
+    reason = side.form_data[0].strip() if side.state == GateState.STATUS_REASON else None
+    side.state = GateState.PROCESSING
+    
+    def _run():
+        action = 'entry' if side.type == 'in' else 'exit'
+        endpoint = f"{API_BASE}/{action}"
+        payload = {
+            "registration_id": side.data['auto_id'],
+            "pic_base64": img_to_b64(side.snapshot),
+            "logged_status": getattr(side, 'logged_status', None),
+            "reason": reason
+        }
+        if acknowledge and side.anomaly_id:
+            payload["acknowledge_auto_id"] = side.anomaly_id
+            
+        try:
+            api_session.post(endpoint, json=payload, headers=headers(), timeout=5)
+            open_gate(side)
+        except Exception as e:
+            side.state = GateState.API_ERROR
+            side.api_error = "Submit failed: API Unreachable"
+            
+    threading.Thread(target=_run, daemon=True).start()
 
 def check_and_submit_guest(side):
     """Check for guest anomaly before submitting. Shows GUEST_WARNING if found."""
@@ -286,10 +303,11 @@ def check_and_submit_guest(side):
     submit_manual_guest(side)
 
 def submit_manual_guest(side, acknowledge=False):
-    endpoint = f"{API_BASE}/manual"
+    # Prepare payload before state change
     payload = {
         "type": side.type,
-        "pic_base64": img_to_b64(side.snapshot)
+        "pic_base64": img_to_b64(side.snapshot),
+        "logged_status": getattr(side, 'logged_status', None)
     }
     if side.type == 'in':
         payload['make_model'] = side.form_data[0]
@@ -301,23 +319,27 @@ def submit_manual_guest(side, acknowledge=False):
     if acknowledge and side.anomaly_id:
         payload['acknowledge_log_id'] = side.anomaly_id
         
-    payload['logged_status'] = getattr(side, 'logged_status', None)
-
-    try:
-        r = requests.post(endpoint, json=payload, headers=headers(), timeout=5)
-        if r.status_code == 200:
-            if side.type == 'in':
-                side.ticket_generated = r.json().get('ticket_no')
-                side.state = GateState.TICKET_SHOW
-                # gate opens after they dismiss ticket
+    side.state = GateState.PROCESSING
+    
+    def _run():
+        endpoint = f"{API_BASE}/manual"
+        try:
+            r = api_session.post(endpoint, json=payload, headers=headers(), timeout=5)
+            if r.status_code == 200:
+                if side.type == 'in':
+                    side.ticket_generated = r.json().get('ticket_no')
+                    side.state = GateState.TICKET_SHOW
+                    # gate opens after they dismiss ticket
+                else:
+                    open_gate(side)
             else:
-                open_gate(side)
-        else:
+                side.state = GateState.API_ERROR
+                side.api_error = f"Manual submit failed: HTTP {r.status_code}"
+        except Exception as e:
             side.state = GateState.API_ERROR
-            side.api_error = "Manual submit failed."
-    except Exception as e:
-        side.state = GateState.API_ERROR
-        side.api_error = str(e)
+            side.api_error = "Submit failed: API Unreachable"
+            
+    threading.Thread(target=_run, daemon=True).start()
 
 from pyzbar.pyzbar import decode
 
