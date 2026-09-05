@@ -124,3 +124,10 @@ CREATE TABLE IF NOT EXISTS `settings` (
 ) ENGINE=InnoDB;
 
 INSERT IGNORE INTO `settings` (`id`, `max_capacity`) VALUES (1, -1);
+
+-- Create vip_log table
+CREATE TABLE IF NOT EXISTS `vip_log` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `type` ENUM('in', 'out') NOT NULL,
+    `timestamp` DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;

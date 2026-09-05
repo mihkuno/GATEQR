@@ -13,7 +13,7 @@
     ];
 
     // ── Stats ────────────────────────────────────────────────────────────────
-    let statsData = $state((data.stats as any) || { currentlyIn: 0, visitsToday: 0, registeredIn: 0, guestsIn: 0, anomaliesToday: 0, maxCapacity: -1, total2Wheelers: 0, total4Wheelers: 0 });
+    let statsData = $state((data.stats as any) || { currentlyIn: 0, visitsToday: 0, registeredIn: 0, guestsIn: 0, vipsIn: 0, anomaliesToday: 0, maxCapacity: -1, total2Wheelers: 0, total4Wheelers: 0 });
     let roleBreakdown = $state(data.roleBreakdown || { student: 0, employee: 0, visitor: 0, concessionaire: 0, guest: 0 });
     let hourlyChart = $state(data.hourlyChart || Array(24).fill(0));
 
@@ -65,6 +65,14 @@
             icon: `<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>`,
             color: '#8b5cf6',
             bg: 'rgba(139,92,246,0.08)'
+        },
+        {
+            label: 'VIPs In',
+            value: statsData.vipsIn,
+            desc: 'VIPs currently inside',
+            icon: `<path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/>`,
+            color: '#f59e0b',
+            bg: 'rgba(245,158,11,0.08)'
         }
     ]);
 
@@ -93,6 +101,7 @@
             { label: 'Visitor',      value: roleBreakdown.visitor,        color: '#059669' },
             { label: 'Concessionaire', value: roleBreakdown.concessionaire, color: '#7c3aed' },
             { label: 'Guest',        value: roleBreakdown.guest,          color: '#d97706' },
+            { label: 'VIP',          value: roleBreakdown.vip,            color: '#f59e0b' },
         ].filter(s => s.value > 0);
 
         const total = categories.reduce((s, c) => s + c.value, 0);
@@ -123,7 +132,7 @@
     let boundFilter   = $state('all');
     let selectedCampus = $state('all');
     
-    const allRoles = ['student', 'employee', 'visitor', 'concessionaire', 'guest'];
+    const allRoles = ['student', 'employee', 'visitor', 'concessionaire', 'guest', 'vip'];
     let selectedRoles = $state([...allRoles]);
     let roleDropdownOpen = $state(false);
 
@@ -137,8 +146,8 @@
         activeTab = tab;
         if (tab === 'all') selectedRoles = [...allRoles];
         else if (tab === 'vip') {
-            selectedRoles = ['guest'];
-            searchQuery = 'VIP';
+            selectedRoles = ['vip'];
+            searchQuery = '';
         }
         else selectedRoles = [tab];
         currentPage = 1; fetchLogs();
@@ -456,7 +465,7 @@
                   <span class="time-date">{log.date}</span>
                 </td>
                 <td>
-                  <span class="chip {log.type === 'Guest' ? 'chip-guest' : 'chip-reg'}">{log.type}</span>
+                  <span class="chip {log.type === 'Guest' ? 'chip-guest' : (log.type === 'VIP' ? 'chip-vip' : 'chip-reg')}">{log.type}</span>
                 </td>
                 <td class="td-name">
                   <span class="name-text">{log.name}</span>
@@ -837,6 +846,7 @@
   .chip-in          { background: rgba(34,197,94,0.15);  color: #16a34a; }
   .chip-out         { background: rgba(239,68,68,0.15);  color: #dc2626; }
   .chip-guest       { background: rgba(245,158,11,0.15); color: #d97706; }
+  .chip-vip         { background: rgba(245,158,11,0.15); color: #b45309; }
   .chip-reg         { background: rgba(59,130,246,0.15); color: #2563eb; }
   .chip-anomaly     { background: rgba(239,68,68,0.12);  color: #dc2626; border: 1px solid rgba(220,38,38,0.3); }
   .chip-ok          { background: rgba(34,197,94,0.12);  color: #16a34a; }

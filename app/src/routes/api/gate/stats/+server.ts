@@ -31,8 +31,14 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
         const [guestTodayRows] = await db.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM guestlog WHERE DATE(`in`) = CURDATE()');
         const guestVisitsToday = guestTodayRows[0].count;
 
-        const totalCurrentlyIn = currentlyIn + guestCurrentlyIn;
-        const totalVisitsToday = visitsToday + guestVisitsToday;
+        // VIP entries today
+        const [vipInRows] = await db.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM vip_log WHERE type="in" AND DATE(timestamp) = CURDATE()');
+        const [vipOutRows] = await db.query<RowDataPacket[]>('SELECT COUNT(*) as count FROM vip_log WHERE type="out" AND DATE(timestamp) = CURDATE()');
+        const vipCurrentlyIn = Math.max(0, vipInRows[0].count - vipOutRows[0].count);
+        const vipVisitsToday = vipInRows[0].count;
+
+        const totalCurrentlyIn = currentlyIn + guestCurrentlyIn + vipCurrentlyIn;
+        const totalVisitsToday = visitsToday + guestVisitsToday + vipVisitsToday;
 
         // Anomalies today (registered + guest entries with a logged_status)
         const [anomalyRegRows] = await db.query<RowDataPacket[]>(
@@ -51,7 +57,7 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
             WHERE DATE(e.\`in\`) = CURDATE()
             GROUP BY r.role
         `);
-        const roleBreakdown: Record<string, number> = { student: 0, employee: 0, visitor: 0, concessionaire: 0, guest: guestVisitsToday };
+        const roleBreakdown: Record<string, number> = { student: 0, employee: 0, visitor: 0, concessionaire: 0, guest: guestVisitsToday, vip: vipVisitsToday };
         roleBreakdownRows.forEach(row => { roleBreakdown[row.role] = row.count; });
 
         // Hourly breakdown for today (entries only)
@@ -69,9 +75,17 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
              GROUP BY HOUR(\`in\`)`
         );
 
+        const [vipHourlyRows] = await db.query<RowDataPacket[]>(
+            `SELECT HOUR(timestamp) as hour, COUNT(*) as count 
+             FROM vip_log 
+             WHERE type="in" AND DATE(timestamp) = CURDATE() 
+             GROUP BY HOUR(timestamp)`
+        );
+
         const hourlyData = Array(24).fill(0);
         hourlyRows.forEach(row => { hourlyData[row.hour] += row.count; });
         guestHourlyRows.forEach(row => { hourlyData[row.hour] += row.count; });
+        vipHourlyRows.forEach(row => { hourlyData[row.hour] += row.count; });
 
         const [settingsRows] = await db.query<RowDataPacket[]>('SELECT max_capacity FROM settings WHERE id = 1');
         const maxCapacity = settingsRows.length > 0 ? settingsRows[0].max_capacity : -1;
@@ -101,6 +115,7 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
                 visitsToday: totalVisitsToday,
                 registeredIn: currentlyIn,
                 guestsIn: guestCurrentlyIn,
+                vipsIn: vipCurrentlyIn,
                 anomaliesToday,
                 maxCapacity,
                 total2Wheelers: total_2_wheelers,

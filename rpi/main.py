@@ -311,6 +311,24 @@ def submit_entry_exit(side, acknowledge=False):
             
     threading.Thread(target=_run, daemon=True).start()
 
+def submit_vip(side):
+    side.state = GateState.PROCESSING
+    def _run():
+        action = 'in' if side.type == 'in' else 'out'
+        try:
+            r = api_session.post(f"{API_BASE}/vip", json={"action": action}, headers=headers(), timeout=5)
+            if r.status_code == 200:
+                open_gate(side)
+            else:
+                side.state = GateState.API_ERROR
+                side.api_error = r.json().get('error', 'VIP Action Failed')
+            r.close()
+        except Exception as e:
+            side.state = GateState.API_ERROR
+            side.api_error = "Submit failed: API Unreachable"
+
+    threading.Thread(target=_run, daemon=True).start()
+
 def check_and_submit_guest(side):
     """Check for guest anomaly before submitting. Shows GUEST_WARNING if found."""
     # Anomaly checks for guests are disabled. Submit directly.
@@ -653,10 +671,13 @@ def mouse_callback(event, x, y, flags, param):
         elif side.state == GateState.CAMPUS_FULL:
             if in_rect(x, y, (cx + 20, H//2 - 70, 230, 50)):
                 side.form_data = ["Override", "N/A", "Campus Full Override"]
-                submit_manual_guest(side)
+                if side.form_data[0] == "VIP":
+                    submit_vip(side)
+                else:
+                    submit_manual_guest(side)
             elif in_rect(x, y, (cx + 260, H//2 - 70, 150, 50)):
                 side.form_data = ["VIP", "VIP", "VIP Access"]
-                submit_manual_guest(side)
+                submit_vip(side)
                 
         elif side.state == GateState.MANUAL_TYPE:
             if in_rect(x, y, (cx + 20, 110, 120, 50)): # REG
@@ -666,7 +687,7 @@ def mouse_callback(event, x, y, flags, param):
             elif in_rect(x, y, (cx + 260, 110, 150, 50)): # VIP
                 if side.type == 'in':
                     side.form_data = ["VIP", "VIP", "VIP Access"]
-                    submit_manual_guest(side)
+                    submit_vip(side)
                 else:
                     open_gate(side)
             elif in_rect(x, y, (cx + 20, H//2 - 70, 100, 50)):
@@ -683,7 +704,10 @@ def mouse_callback(event, x, y, flags, param):
             elif in_rect(x, y, (cx + 130, 110, 270, 30)): side.input_field = 1
             elif in_rect(x, y, (cx + 130, 150, 270, 30)): side.input_field = 2
             elif in_rect(x, y, (cx + 20, H//2 - 70, 120, 50)):
-                submit_manual_guest(side)  # Guest IN: no prior ticket to check
+                if side.form_data[0] == "VIP":
+                    submit_vip(side)
+                else:
+                    submit_manual_guest(side)  # Guest IN: no prior ticket to check
             elif in_rect(x, y, (cx + 150, H//2 - 70, 100, 50)):
                 close_gate(side)
                 
@@ -695,7 +719,10 @@ def mouse_callback(event, x, y, flags, param):
                 
         elif side.state == GateState.GUEST_WARNING:
             if in_rect(x, y, (cx + 20, H//2 - 70, 250, 50)):
-                submit_manual_guest(side, acknowledge=True)
+                if side.form_data[0] == "VIP":
+                    submit_vip(side)
+                else:
+                    submit_manual_guest(side, acknowledge=True)
             elif in_rect(x, y, (cx + 280, H//2 - 70, 100, 50)):
                 close_gate(side)
                 

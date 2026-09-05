@@ -82,6 +82,20 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
             return rows;
         })();
 
+        // ── VIP entries ──────────────────────────────────────────────────────
+        const isVipIncluded = (roleFilter === 'all' || roleFilter.split(',').includes('vip')) && campusFilter === 'all';
+        const vipRows: RowDataPacket[] = (typeFilter === 'registered' || typeFilter === 'guest' || !isVipIncluded) ? [] : await (async () => {
+            const [rows] = await db.query<RowDataPacket[]>(`
+                SELECT 
+                    id, 
+                    type, 
+                    timestamp
+                FROM vip_log
+                WHERE DATE(timestamp) = ${dateFilter}
+            `, [...dateParams]);
+            return rows;
+        })();
+
         // ── Flatten to log events ────────────────────────────────────────────
         const logs: any[] = [];
 
@@ -165,6 +179,28 @@ export const GET: RequestHandler = async ({ request, url, locals }) => {
                     photo: row.pic_out,
                     status: row.logged_status_out,
                     timestamp: outDate.getTime()
+                });
+            }
+        });
+
+        vipRows.forEach(row => {
+            const rowDate = new Date(row.timestamp);
+            const bound = row.type === 'in' ? 'In' : 'Out';
+            
+            if (boundFilter === 'all' || boundFilter.toLowerCase() === row.type) {
+                logs.push({
+                    id: `vip-${row.id}`,
+                    date: new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(rowDate),
+                    time: new Intl.DateTimeFormat('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }).format(rowDate),
+                    name: 'VIP',
+                    role: 'vip',
+                    make: 'VIP Vehicle',
+                    plate: 'VIP',
+                    bound: bound,
+                    type: 'VIP',
+                    photo: null,
+                    status: null,
+                    timestamp: rowDate.getTime()
                 });
             }
         });
