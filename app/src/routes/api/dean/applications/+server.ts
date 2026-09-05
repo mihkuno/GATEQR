@@ -13,7 +13,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         const { registration_id, action, reason } = await request.json();
 
         // Check if registration belongs to dean's dept
-        const [rows] = await db.query<RowDataPacket[]>('SELECT r.*, u.email as user_email FROM registration r JOIN user u ON r.user_id = u.auto_id WHERE r.auto_id = ? AND r.department_id = ?', 
+        const [rows] = await db.query<RowDataPacket[]>('SELECT r.*, u.email as user_email FROM registration r JOIN user u ON r.user_id = u.auto_id WHERE r.vehicle_id = ? AND r.department_id = ?', 
             [registration_id, locals.user.department_id]
         );
 
@@ -24,7 +24,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         const reg = rows[0];
 
         if (action === 'accept' && reg.status === 'dept_val') {
-            await db.query(`UPDATE registration SET status = 'osa_val', dept_val_at = NOW() WHERE auto_id = ?`, [registration_id]);
+            await db.query(`UPDATE registration SET status = 'osa_val', dept_val_at = NOW() WHERE vehicle_id = ?`, [registration_id]);
             await sendEmail(
                 reg.user_email,
                 'Application Approved by Dean - Liceo GateQR',
@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         } 
         else if (action === 'reject' && reg.status === 'dept_val') {
             if (!reason) return json({ error: 'Reason required' }, { status: 400 });
-            await db.query(`UPDATE registration SET status = 'rejected', rejected_at = NOW(), invalid_reason = ? WHERE auto_id = ?`, [reason, registration_id]);
+            await db.query(`UPDATE registration SET status = 'rejected', rejected_at = NOW(), invalid_reason = ? WHERE vehicle_id = ?`, [reason, registration_id]);
             await sendEmail(
                 reg.user_email,
                 'Application Rejected by Dean - Liceo GateQR',
@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         else if (action === 'revoke' && reg.status === 'osa_val') {
             // Dean can revoke if OSA hasn't validated yet
             if (!reason) return json({ error: 'Reason required' }, { status: 400 });
-            await db.query(`UPDATE registration SET status = 'revoked', revoked_at = NOW(), invalid_reason = ? WHERE auto_id = ?`, [reason, registration_id]);
+            await db.query(`UPDATE registration SET status = 'revoked', revoked_at = NOW(), invalid_reason = ? WHERE vehicle_id = ?`, [reason, registration_id]);
             await sendEmail(
                 reg.user_email,
                 'Application Revoked by Dean - Liceo GateQR',
@@ -54,7 +54,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             );
         }
         else if (action === 'retract' && (reg.status === 'osa_val' || reg.status === 'rejected')) {
-            await db.query(`UPDATE registration SET status = 'dept_val', dept_val_at = NULL, rejected_at = NULL, invalid_reason = NULL WHERE auto_id = ?`, [registration_id]);
+            await db.query(`UPDATE registration SET status = 'dept_val', dept_val_at = NULL, rejected_at = NULL, invalid_reason = NULL WHERE vehicle_id = ?`, [registration_id]);
         }
         else {
             return json({ error: 'Invalid action for current status' }, { status: 400 });

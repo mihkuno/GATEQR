@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     try {
         const { registration_id, action, reason, schedule } = await request.json();
 
-        const [rows] = await db.query<RowDataPacket[]>('SELECT r.*, u.email as user_email FROM registration r JOIN user u ON r.user_id = u.auto_id WHERE r.auto_id = ?', [registration_id]);
+        const [rows] = await db.query<RowDataPacket[]>('SELECT r.*, u.email as user_email FROM registration r JOIN user u ON r.user_id = u.auto_id WHERE r.vehicle_id = ?', [registration_id]);
         if (rows.length === 0) {
             return json({ error: 'Application not found' }, { status: 404 });
         }
@@ -64,7 +64,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                     doc_qr = ?,
                     dist_sched = ?,
                     expires_at = DATE_ADD(created_at, INTERVAL ? MONTH)
-                WHERE auto_id = ?
+                WHERE vehicle_id = ?
             `, [qrUrl, new Date(schedule), expiryMonths, registration_id]);
             await sendEmail(
                 reg.user_email,
@@ -75,7 +75,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         } 
         else if (action === 'reject' && reg.status === 'osa_val') {
             if (!reason) return json({ error: 'Reason required' }, { status: 400 });
-            await db.query(`UPDATE registration SET status = 'rejected', rejected_at = NOW(), invalid_reason = ? WHERE auto_id = ?`, [reason, registration_id]);
+            await db.query(`UPDATE registration SET status = 'rejected', rejected_at = NOW(), invalid_reason = ? WHERE vehicle_id = ?`, [reason, registration_id]);
             await sendEmail(
                 reg.user_email,
                 'Application Rejected by OSA - Liceo GateQR',
@@ -84,7 +84,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             );
         }
         else if (action === 'deliver' && reg.status === 'osa_dist') {
-            await db.query(`UPDATE registration SET osa_dist_at = NOW() WHERE auto_id = ?`, [registration_id]);
+            await db.query(`UPDATE registration SET osa_dist_at = NOW() WHERE vehicle_id = ?`, [registration_id]);
             await sendEmail(
                 reg.user_email,
                 'Sticker Delivered - Liceo GateQR',
@@ -94,7 +94,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         }
         else if (action === 'revoke' && reg.status === 'osa_dist') {
             if (!reason) return json({ error: 'Reason required' }, { status: 400 });
-            await db.query(`UPDATE registration SET status = 'revoked', revoked_at = NOW(), invalid_reason = ? WHERE auto_id = ?`, [reason, registration_id]);
+            await db.query(`UPDATE registration SET status = 'revoked', revoked_at = NOW(), invalid_reason = ? WHERE vehicle_id = ?`, [reason, registration_id]);
             await sendEmail(
                 reg.user_email,
                 'Application Revoked - Liceo GateQR',
@@ -103,7 +103,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             );
         }
         else if (action === 'retract') {
-            await db.query(`UPDATE registration SET status = 'osa_val', osa_val_at = NULL, osa_dist_at = NULL, revoked_at = NULL, rejected_at = NULL, invalid_reason = NULL, doc_qr = NULL WHERE auto_id = ?`, [registration_id]);
+            await db.query(`UPDATE registration SET status = 'osa_val', osa_val_at = NULL, osa_dist_at = NULL, revoked_at = NULL, rejected_at = NULL, invalid_reason = NULL, doc_qr = NULL WHERE vehicle_id = ?`, [registration_id]);
             await sendEmail(
                 reg.user_email,
                 'Application Approval Retracted - Liceo GateQR',
@@ -115,7 +115,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             if (reg.expires_at && new Date(reg.expires_at) < new Date()) {
                 return json({ error: 'Cannot unrevoke an expired registration' }, { status: 400 });
             }
-            await db.query(`UPDATE registration SET status = 'osa_dist', revoked_at = NULL, invalid_reason = NULL WHERE auto_id = ?`, [registration_id]);
+            await db.query(`UPDATE registration SET status = 'osa_dist', revoked_at = NULL, invalid_reason = NULL WHERE vehicle_id = ?`, [registration_id]);
             await sendEmail(
                 reg.user_email,
                 'Application Unrevoked - Liceo GateQR',
@@ -135,7 +135,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                     console.error('Failed to delete file', filepath, e);
                 }
             }
-            await db.query(`DELETE FROM registration WHERE auto_id = ?`, [registration_id]);
+            await db.query(`DELETE FROM registration WHERE vehicle_id = ?`, [registration_id]);
             await sendEmail(
                 reg.user_email,
                 'Application Deleted - Liceo GateQR',

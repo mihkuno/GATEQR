@@ -158,21 +158,33 @@ retries = Retry(total=2, backoff_factor=0.2, status_forcelist=[ 500, 502, 503, 5
 api_session.mount('http://', HTTPAdapter(max_retries=retries))
 api_session.mount('https://', HTTPAdapter(max_retries=retries))
 
+is_connected = True
+
 def poll_api():
-    global global_stats, global_logs
+    global global_stats, global_logs, is_connected
     while True:
         try:
             r1 = api_session.get(f"{API_BASE}/stats", headers=headers(), timeout=5)
             if r1.status_code == 200:
                 global_stats = r1.json().get("stats", global_stats)
+            r1.close()
             
             r2 = api_session.get(f"{API_BASE}/logs?date={current_date_filter}", headers=headers(), timeout=5)
             if r2.status_code == 200:
                 global_logs = r2.json().get("logs", [])
+            r2.close()
+            
+            if not is_connected:
+                print("API Polling: Connection restored!")
+                is_connected = True
         except requests.exceptions.RequestException:
-            print("API Polling error: Connection timed out or server unreachable.")
+            if is_connected:
+                print("API Polling error: Connection timed out or server unreachable. (Will keep trying silently...)")
+                is_connected = False
         except Exception as e:
-            print(f"API Polling error: {type(e).__name__}")
+            if is_connected:
+                print(f"API Polling error: {type(e).__name__}")
+                is_connected = False
         time.sleep(5)
 
 threading.Thread(target=poll_api, daemon=True).start()
@@ -266,6 +278,7 @@ def process_qr(side, qr_text, frame):
         else:
             side.state = GateState.API_ERROR
             side.api_error = f"HTTP {r.status_code}"
+        r.close()
     except Exception as e:
         side.state = GateState.API_ERROR
         side.api_error = str(e)
@@ -289,7 +302,8 @@ def submit_entry_exit(side, acknowledge=False):
             payload["acknowledge_auto_id"] = side.anomaly_id
             
         try:
-            api_session.post(endpoint, json=payload, headers=headers(), timeout=5)
+            r = api_session.post(endpoint, json=payload, headers=headers(), timeout=5)
+            r.close()
             open_gate(side)
         except Exception as e:
             side.state = GateState.API_ERROR
@@ -335,13 +349,14 @@ def submit_manual_guest(side, acknowledge=False):
             else:
                 side.state = GateState.API_ERROR
                 side.api_error = f"Manual submit failed: HTTP {r.status_code}"
+            r.close()
         except Exception as e:
             side.state = GateState.API_ERROR
             side.api_error = "Submit failed: API Unreachable"
             
     threading.Thread(target=_run, daemon=True).start()
 
-from pyzbar.pyzbar import decode
+from pyzbar.pyzbar import decode, ZBarSymbol
 
 # ==============================================================================
 # UI RENDERING & MOUSE
@@ -729,7 +744,7 @@ while True:
     for side, cx, crop in crops:
         side.latest_crop = crop.copy()
         if side.state == GateState.SCANNING:
-            decoded_objects = decode(crop)
+            decoded_objects = decode(crop, symbols=[ZBarSymbol.QRCODE])
             if decoded_objects:
                 data = decoded_objects[0].data.decode("utf-8")
                 print(f"[{side.type}] QR: {data}")
