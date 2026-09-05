@@ -685,11 +685,8 @@ def mouse_callback(event, x, y, flags, param):
             elif in_rect(x, y, (cx + 150, 110, 100, 50)): # GUEST
                 side.state = GateState.MANUAL_GUEST_IN if side.type == 'in' else GateState.MANUAL_GUEST_OUT
             elif in_rect(x, y, (cx + 260, 110, 150, 50)): # VIP
-                if side.type == 'in':
-                    side.form_data = ["VIP", "VIP", "VIP Access"]
-                    submit_vip(side)
-                else:
-                    open_gate(side)
+                side.form_data = ["VIP", "VIP", "VIP Access"]
+                submit_vip(side)
             elif in_rect(x, y, (cx + 20, H//2 - 70, 100, 50)):
                 close_gate(side)
                 
