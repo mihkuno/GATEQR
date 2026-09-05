@@ -1,3 +1,10 @@
+import os
+import warnings
+
+os.environ["OPENCV_LOG_LEVEL"] = "FATAL"
+os.environ["QT_LOGGING_RULES"] = "*.debug=false;qt.qpa.*=false"
+warnings.filterwarnings("ignore", module="gpiozero")
+
 import cv2
 import time
 import requests
@@ -318,13 +325,31 @@ from pyzbar.pyzbar import decode
 # UI RENDERING & MOUSE
 # ==============================================================================
 W, H = 1280, 720
-cap1 = cv2.VideoCapture(0)
+
+# Search for the first two valid cameras
+# Many USB cameras create two /dev/video nodes (video + metadata).
+# We must try reading a frame to ensure it's a usable video node.
+available_caps = []
+for i in range(10): # Probe first 10 indices
+    cap = cv2.VideoCapture(i)
+    if cap.isOpened():
+        ret, _ = cap.read()
+        if ret:
+            available_caps.append(cap)
+            if len(available_caps) == 2:
+                break
+        else:
+            cap.release()
+    else:
+        cap.release()
+
+cap1 = available_caps[0] if len(available_caps) > 0 else cv2.VideoCapture(-1)
 has_cam1 = cap1.isOpened()
 if has_cam1:
     cap1.set(cv2.CAP_PROP_FRAME_WIDTH, W)
     cap1.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
 
-cap2 = cv2.VideoCapture(1)
+cap2 = available_caps[1] if len(available_caps) > 1 else cv2.VideoCapture(-1)
 if cap2.isOpened():
     cap2.set(cv2.CAP_PROP_FRAME_WIDTH, W)
     cap2.set(cv2.CAP_PROP_FRAME_HEIGHT, H)

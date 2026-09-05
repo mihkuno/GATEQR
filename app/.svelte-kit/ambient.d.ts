@@ -69,7 +69,6 @@ declare module '$env/static/private' {
 	export const FNM_ARCH: string;
 	export const VSCODE_GIT_ASKPASS_NODE: string;
 	export const DBUS_SESSION_BUS_ADDRESS: string;
-	export const VSCODE_PYTHON_AUTOACTIVATE_GUARD: string;
 	export const WSL_DISTRO_NAME: string;
 	export const COLORTERM: string;
 	export const WAYLAND_DISPLAY: string;
@@ -82,7 +81,6 @@ declare module '$env/static/private' {
 	export const PULSE_SERVER: string;
 	export const _: string;
 	export const FNM_NODE_DIST_MIRROR: string;
-	export const USER_ZDOTDIR: string;
 	export const TERM: string;
 	export const npm_config_node_gyp: string;
 	export const PATH: string;
@@ -92,7 +90,6 @@ declare module '$env/static/private' {
 	export const DISPLAY: string;
 	export const LANG: string;
 	export const PYTHONSTARTUP: string;
-	export const VSCODE_INJECTION: string;
 	export const LS_COLORS: string;
 	export const FNM_DIR: string;
 	export const TERM_PROGRAM: string;
@@ -104,10 +101,10 @@ declare module '$env/static/private' {
 	export const npm_lifecycle_event: string;
 	export const NODE_PATH: string;
 	export const VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
+	export const VSCODE_NONCE: string;
 	export const PWD: string;
 	export const FNM_MULTISHELL_PATH: string;
 	export const npm_execpath: string;
-	export const ZDOTDIR: string;
 	export const npm_command: string;
 	export const PNPM_SCRIPT_SRC_DIR: string;
 	export const FNM_COREPACK_ENABLED: string;
@@ -234,7 +231,6 @@ declare module '$env/dynamic/private' {
 		FNM_ARCH: string;
 		VSCODE_GIT_ASKPASS_NODE: string;
 		DBUS_SESSION_BUS_ADDRESS: string;
-		VSCODE_PYTHON_AUTOACTIVATE_GUARD: string;
 		WSL_DISTRO_NAME: string;
 		COLORTERM: string;
 		WAYLAND_DISPLAY: string;
@@ -247,7 +243,6 @@ declare module '$env/dynamic/private' {
 		PULSE_SERVER: string;
 		_: string;
 		FNM_NODE_DIST_MIRROR: string;
-		USER_ZDOTDIR: string;
 		TERM: string;
 		npm_config_node_gyp: string;
 		PATH: string;
@@ -257,7 +252,6 @@ declare module '$env/dynamic/private' {
 		DISPLAY: string;
 		LANG: string;
 		PYTHONSTARTUP: string;
-		VSCODE_INJECTION: string;
 		LS_COLORS: string;
 		FNM_DIR: string;
 		TERM_PROGRAM: string;
@@ -269,10 +263,10 @@ declare module '$env/dynamic/private' {
 		npm_lifecycle_event: string;
 		NODE_PATH: string;
 		VSCODE_GIT_ASKPASS_EXTRA_ARGS: string;
+		VSCODE_NONCE: string;
 		PWD: string;
 		FNM_MULTISHELL_PATH: string;
 		npm_execpath: string;
-		ZDOTDIR: string;
 		npm_command: string;
 		PNPM_SCRIPT_SRC_DIR: string;
 		FNM_COREPACK_ENABLED: string;
