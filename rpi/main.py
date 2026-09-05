@@ -293,7 +293,7 @@ def submit_entry_exit(side, acknowledge=False):
         action = 'entry' if side.type == 'in' else 'exit'
         endpoint = f"{API_BASE}/{action}"
         payload = {
-            "registration_id": side.data['auto_id'],
+            "registration_id": side.data['vehicle_id'],
             "pic_base64": img_to_b64(side.snapshot),
             "logged_status": getattr(side, 'logged_status', None),
             "reason": reason
