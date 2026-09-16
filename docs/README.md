@@ -24,6 +24,13 @@
 8. [User Roles & Routing](#8-user-roles--routing)
 9. [API Reference](#9-api-reference)
 10. [Diagrams](#10-diagrams)
+    - [10.1 Flowchart](#101-flowchart)
+    - [10.2 Use Case Diagram](#102-use-case-diagram)
+    - [10.3 System Architecture Diagram](#103-system-architecture-diagram)
+    - [10.4 Entity Relationship Diagram (Physical ERD)](#104-entity-relationship-diagram-physical-erd)
+    - [10.5 Sequence Diagram](#105-sequence-diagram)
+    - [10.6 Conceptual System Diagram](#106-conceptual-system-diagram)
+    - [10.7 Hardware Circuit Diagram](#107-hardware-circuit-diagram)
 
 ---
 
@@ -664,6 +671,94 @@ The critical analysis step happens entirely on the RPi (message 16 — the self-
 3. The server's gate API remains stateless — it receives a command (entry/exit) and executes it, rather than being asked to make behavioral decisions.
 
 Once the guard confirms (message 18), the RPi posts to `/api/gate/entry` including the `registration_id`, a base64-encoded JPEG snapshot from the camera (`pic_base64`), and the `logged_status` captured at scan time. The server inserts the `Vehicle_Log` row and responds with `200 OK`. The RPi then activates the servo motor on GPIO 13 (message 23), physically raising the barrier. The servo returns to closed position after 10 seconds via a background thread, with no further API communication needed for the close event — closing is purely hardware-driven on a timer.
+
+---
+
+### 10.6 Conceptual System Diagram
+
+![Conceptual System Diagram](diagrams/conceptual_diagram.jpg)
+
+#### Overview
+
+The conceptual system diagram presents GateQR as a **four-layer swim-lane architecture**, offering the highest-level abstraction of the system. While the architecture diagram in Section 10.3 focuses on the three deployment tiers and communication protocols, the conceptual diagram maps every functional component across four orthogonal concerns: what users see (**Presentation**), what the server does (**Application**), where data lives (**Data**), and what physical hardware operates (**Hardware**). This framing allows a reader unfamiliar with the codebase to immediately understand *what* the system does and *why* each part exists, before examining *how* any individual component works.
+
+#### Comparison with the System Architecture Diagram (§10.3)
+
+These two diagrams are intentionally complementary and answer different questions. Reading them together gives the most complete picture of GateQR's design.
+
+| | **Conceptual Diagram (this section)** | **[System Architecture Diagram (§10.3)](#103-system-architecture-diagram)** |
+|---|---|---|
+| **Primary question** | *What exists in the system, and what role does each part play?* | *How are parts deployed, and how do they communicate?* |
+| **Organization** | 4 horizontal swim-lanes by **concern** — Presentation / Application / Data / Hardware | 3 vertical **deployment tiers** — Web App / Database / RPi |
+| **Level of abstraction** | High — every logical service is listed individually (QR Generator, Complaint Manager, etc.) | Mid — services are grouped by deployment unit (SvelteKit server as one node) |
+| **Hardware detail** | Cameras, servos, and GPIO pin numbers appear as named components | Hardware is one box: "Raspberry Pi Gate Controller" |
+| **Data layer** | Shows MySQL tables **and** `.env` as two separate, named components | `.env` is discussed in prose but not drawn as a node |
+| **Protocols shown** | Lane-boundary labels only (`HTTP/JSON`, `SQL`) | Explicit directional arrows with protocol labels, auth headers, polling intervals |
+| **Trust / security boundaries** | Not emphasized — focus is on functional scope | Explicitly highlighted — separate auth mechanisms (JWT vs. `X-Gate-Key`) |
+| **Best read by** | Anyone seeing the system for the first time — establishes *vocabulary* | Developers and system integrators — establishes *topology and constraints* |
+
+In short: **the conceptual diagram is a component inventory**; **the architecture diagram is a deployment and communication map**. Neither replaces the other.
+
+
+#### Presentation Layer Analysis
+
+The Presentation Layer contains exactly six pages that together cover the complete user journey. This layer is deliberately thin — each page is a front-end surface that delegates all business logic downward to the Application Layer via REST calls. Notably, the **Security Monitor Dashboard** appears here alongside the applicant-facing pages, reflecting that it is rendered in a browser even though it is operationally closer to the gate hardware. This is a conscious full-stack SvelteKit decision: rendering the dashboard server-side rather than as a separate native application keeps the entire human-interface surface in one codebase, simplifies deployment, and ensures consistent session management through the same JWT middleware.
+
+The six pages also map cleanly to the five actor roles: Login/OTP is shared by all; Application Form and Status Tracker serve Applicants; Dean Validation Portal serves Deans; OSA Admin Panel serves OSA; and Security Monitor Dashboard serves Security Guards. There is no page in the system that can be accessed without first authenticating — the `hooks.server.ts` middleware enforces this universally.
+
+#### Application Layer Analysis
+
+The Application Layer houses seven distinct services, but only one of them — the **SvelteKit Server** — is a deployed process. The remaining six (Auth Service, Email Service, QR Code Generator, Gate API, Registration Workflow Engine, Complaint Manager) are logical service boundaries implemented as route groups within the same SvelteKit server. This is a deliberate architectural choice: rather than a microservices deployment (which would introduce inter-service latency, independent versioning complexity, and additional infrastructure), GateQR uses a monolithic server with internal service separation. For a university capstone at this scale, the monolithic approach provides all the organizational benefits of service decomposition — clear ownership, independent testability, distinct API contracts — without the operational overhead.
+
+The **Gate API** box is intentionally the only component in the Application Layer that has a direct bidirectional relationship with the Hardware Layer. All other application services are exclusively invoked by the Presentation Layer (browsers). This separation means the machine-facing and human-facing interfaces cannot accidentally bleed into each other — a design constraint enforced by the `X-Gate-Key` header authentication that gate endpoints require.
+
+#### Data Layer Analysis
+
+The Data Layer explicitly separates **mutable runtime state** (MySQL database) from **immutable boot-time configuration** (`.env` file). This distinction matters for the system's security posture. The MySQL database is accessible via SQL — if an application bug ever allowed SQL injection, an attacker could potentially read or modify application data. However, they could not read the `.env` file through SQL alone, because the administrative identities (`OSA_EMAIL`, `SECURITY_EMAIL`) and cryptographic keys (`JWT_SECRET`, `GATE_API_KEY`) are never written into the database. This architectural separation creates a security boundary between data-tier compromise and full identity compromise.
+
+The `.env` Config File is also the system's **bootstrap mechanism**: because the OSA Admin's email is in `.env` rather than the database, the administrator can log in, manage departments, and approve registrations even on a fresh database installation with no user records. This avoids a chicken-and-egg problem common in systems where the admin account must itself be registered before the system becomes operational.
+
+#### Hardware Layer Analysis
+
+The Hardware Layer shows five physical components attached to the Raspberry Pi 4: two USB cameras and two servo motors, plus the OpenCV/pyzbar/gpiozero software stack that mediates between them and the application logic. The diagram correctly shows this layer as autonomous — it pulls data from and pushes events to the Application Layer's Gate API, but it does not share any database access with the web server. All of the RPi's persistent state is written through the API: entry logs, exit logs, guest records, and VIP logs all live in MySQL and are written by the SvelteKit server on behalf of the RPi's API calls.
+
+This stateless design has an important operational consequence: if the RPi crashes and reboots, no data is lost, because the RPi holds no local state. The only transient state on the device is the OpenCV frame buffer and the current `GateState` enum — both of which are safely initialized at startup. The servo motors return to their closed position (0°) on startup, ensuring the gate fails closed rather than open in the event of an unplanned reboot.
+
+---
+
+### 10.7 Hardware Circuit Diagram
+
+![Hardware Circuit Diagram](diagrams/circuit_diagram.jpg)
+
+#### Overview
+
+The hardware circuit diagram provides the lowest-level physical view of the Raspberry Pi 4 gate controller, specifying every wire, GPIO pin assignment, and peripheral connection required to build the hardware side of GateQR. It complements the software documentation by answering the question any hardware builder must resolve first: *which physical wire goes where?* The diagram is organized around the central Raspberry Pi 4 board, with USB cameras on one side and servo motors on the other, reflecting their physical placement at a campus gate: cameras face the driveway while servos actuate the barrier arms.
+
+#### Power Architecture
+
+The entire hardware assembly is powered by a single **5V / 3A USB-C** power supply connected to the Raspberry Pi's dedicated USB-C power port. This is the only power input for the system. The Raspberry Pi then distributes power to the servo motors from its **5V header pins** (Pin 2 and Pin 4 on the 40-pin GPIO header), and provides a common **GND** reference (Pin 14) shared by both servos. This shared ground is critical: without a common GND between the Pi and the servos, the PWM signal level reference would be undefined, causing erratic servo behavior.
+
+A single 5V/3A supply is sufficient for the Raspberry Pi 4 (which draws up to ~1.2A under load) plus two SG90-class servos (which each draw approximately 100–200mA under load). If heavier MG996R servos are used instead, a separate 5V servo power supply is recommended, with only the GND connected back to the Raspberry Pi to maintain the common reference. The circuit diagram represents the SG90/lighter-servo configuration as the baseline.
+
+#### GPIO PWM Signal Routing
+
+The two servo motors are controlled via **hardware PWM signals** on GPIO 13 (Pin 26, ALT0/PWM1) and GPIO 19 (Pin 35, ALT5/PWM1). Both pins share the same PWM channel hardware (PWM1 on the BCM2711 SoC), but the `gpiozero` `AngularServo` class abstracts this into independent software-controlled timings. The PWM frequency is 50Hz — the standard for hobby servo motors — with pulse widths ranging from **0.5ms** (0°, gate closed) to **2.5ms** (90°, gate open).
+
+The choice of GPIO 13 and GPIO 19 (rather than the primary PWM pins GPIO 12 and GPIO 18) was made to avoid conflicts with audio output on the Raspberry Pi 4, which shares the PWM hardware with the 3.5mm audio jack. Using GPIO 13 and GPIO 19 (PWM1 alternate function pins) keeps the audio subsystem free and prevents audio-induced jitter on the servo signal.
+
+The signal wire from each GPIO pin connects directly to the servo's **orange signal wire** (following the standard servo color convention: red = VCC, black = GND, orange/yellow/white = signal). No level shifting is required because the Raspberry Pi's GPIO high level (3.3V) is within the signal detection range of SG90 and MG996R servos, which accept signal voltages from 3V to 5V.
+
+#### USB Camera Integration
+
+The two USB webcams connect to the Raspberry Pi 4's **USB 3.0 ports** (the blue ports on the board) via standard USB-A cables. USB 3.0 is used rather than USB 2.0 because OpenCV's `VideoCapture` interface benefits from the higher throughput for frame acquisition, particularly at resolutions above 640×480. Each camera is assigned a device index by the Linux kernel at enumeration time: the Entrance camera is typically `/dev/video0` and the Exit camera `/dev/video2` (Linux enumerates some USB cameras across two device nodes — one for video, one for metadata).
+
+The cameras are entirely self-powered through USB — they draw their 5V from the USB bus provided by the Raspberry Pi. The Raspberry Pi 4's USB controller can source up to 1.2A total across all USB ports, which is sufficient for two standard USB webcams (each typically drawing 100–300mA). No external USB hub with separate power is required for the baseline configuration.
+
+#### Fail-Safe Gate Behavior
+
+An important safety characteristic visible in the wiring: the servo signal wires are the only active control path to the gate barrier. There is no hardware relay, no separate motor driver board, and no emergency cut-off circuit shown — this is intentional for a servo-controlled barrier at the capstone prototype scale. The fail-safe behavior is software-enforced: when `main.py` starts, it initializes both servos to `initial_angle=None` (which de-energizes the servo, allowing it to rest in whatever position it is currently held by gravity or a return spring). The gate barrier design must include a physical return spring or counterweight so that a power loss causes the arm to fall to the closed/lowered position, not to remain raised blocking or unblocking traffic.
+
+For a production deployment, the circuit should be extended with an **optocoupler isolation circuit** between the Pi's GPIO pins and the servo signal wire, and a dedicated servo power supply (with only GND shared to the Pi) to fully isolate the Pi's logic circuits from inductive spikes generated when the servo motor reverses direction. These additions are not shown in the diagram because they are beyond the prototype scope of the capstone project.
 
 ---
 
