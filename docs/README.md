@@ -31,6 +31,11 @@
     - [10.5 Sequence Diagram](#105-sequence-diagram)
     - [10.6 Conceptual System Diagram](#106-conceptual-system-diagram)
     - [10.7 Hardware Circuit Diagram](#107-hardware-circuit-diagram)
+    - [10.8 Role-Based Process Flowcharts](#108-role-based-process-flowcharts)
+      - [10.8.1 Applicant & QR Registration Workflow](#1081-applicant--qr-registration-workflow)
+      - [10.8.2 Dean & OSA Admin Workflow](#1082-dean--osa-admin-workflow)
+      - [10.8.3 Raspberry Pi Gate Controller Workflow (main.py)](#1083-raspberry-pi-gate-controller-workflow-mainpy)
+      - [10.8.4 Security Guard Workflow](#1084-security-guard-workflow)
 
 ---
 
@@ -759,6 +764,134 @@ The cameras are entirely self-powered through USB — they draw their 5V from th
 An important safety characteristic visible in the wiring: the servo signal wires are the only active control path to the gate barrier. There is no hardware relay, no separate motor driver board, and no emergency cut-off circuit shown — this is intentional for a servo-controlled barrier at the capstone prototype scale. The fail-safe behavior is software-enforced: when `main.py` starts, it initializes both servos to `initial_angle=None` (which de-energizes the servo, allowing it to rest in whatever position it is currently held by gravity or a return spring). The gate barrier design must include a physical return spring or counterweight so that a power loss causes the arm to fall to the closed/lowered position, not to remain raised blocking or unblocking traffic.
 
 For a production deployment, the circuit should be extended with an **optocoupler isolation circuit** between the Pi's GPIO pins and the servo signal wire, and a dedicated servo power supply (with only GND shared to the Pi) to fully isolate the Pi's logic circuits from inductive spikes generated when the servo motor reverses direction. These additions are not shown in the diagram because they are beyond the prototype scope of the capstone project.
+
+---
+
+### 10.8 Role-Based Process Flowcharts
+
+The following four flowcharts provide a **per-role, procedural view** of GateQR. Where the high-level flowchart in Section 10.1 shows the end-to-end lifecycle at an abstract level, these diagrams zoom into the exact decision trees and state transitions each actor navigates. Together they serve as both a developer reference and an operational guide — a security guard, a dean, or an OSA administrator could follow their respective diagram to understand exactly what their actions do inside the system.
+
+---
+
+#### 10.8.1 Applicant & QR Registration Workflow
+
+![Applicant & QR Registration Workflow](diagrams/flowchart_applicant_qr.jpg)
+
+##### Overview
+
+This flowchart covers the complete journey of the most numerous actor in the system — the **Applicant** — from first visiting the registration form through to holding a physical QR sticker and using the campus gate. It is the only workflow that spans both the web application and the physical world, because the final step (picking up the sticker from OSA) requires a physical visit.
+
+##### Registration Submission
+
+The workflow begins at `/entry`, where the applicant fills a single multi-section form covering personal details, vehicle information, and document uploads. The form is submitted as `multipart/form-data` to `POST /api/apply`, which does three things atomically: it **upserts** the `user` record (creating it on first application, or updating it if the applicant has applied before), resolves the `department_id` by matching the applicant's chosen department name to the `department` table, and inserts the `registration` row. No QR code is generated at this stage — the QR is only created once OSA makes a final approval decision.
+
+##### Routing Branch: Student/Employee vs. Visitor/Concessionaire
+
+The first decision point immediately after submission is the applicant type. **Students and employees** are affiliated with a university department and must be vouched for by their Dean before OSA reviews the application — the system sets `status = 'dept_val'` and notifies the department Dean via email. **Visitors and concessionaires** have no departmental affiliation, so their application bypasses the Dean tier entirely and lands directly in OSA's queue with `status = 'osa_val'`. This routing is determined by the `applicant_type` field in the registration form and evaluated at submission time in `/api/apply`.
+
+##### Status Tracking and QR Distribution
+
+Once submitted, the applicant can track progress at `/status`. This page reflects the current `status` ENUM value in real time. When OSA approves and sets `status = 'osa_dist'`, two things happen server-side: a QR code PNG is generated using the `qrcode` library (encoding the applicant's ID number or `REG-{id}` string), saved to `/static/uploads/`, and the URL stored in `doc_qr`; simultaneously, `expires_at` is set to `created_at + QR_EXPIRY_MONTHS` months in the future. An email is dispatched to the applicant with the scheduled pickup appointment at OSA.
+
+The physical sticker handoff is the last mile of this workflow. The applicant visits OSA in person, presents their documents, and receives the printed QR sticker. OSA then clicks **Deliver**, which sets `osa_dist_at = NOW()`. This timestamp is critical — the gate controller checks both `status = 'osa_dist'` **and** `osa_dist_at IS NOT NULL` before treating a vehicle as fully cleared. An application that has been approved but not yet delivered (`osa_dist_at = NULL`) triggers a `STATUS_WARNING` at the gate, correctly blocking entry until the sticker is physically in the applicant's hands.
+
+---
+
+#### 10.8.2 Dean & OSA Admin Workflow
+
+![Dean & OSA Admin Workflow](diagrams/flowchart_dean_osa.jpg)
+
+##### Overview
+
+This two-lane diagram shows the **Dean** and **OSA Admin** workflows side by side, which is intentional: both actors operate on the same `registration` records and their actions are sequentially dependent (Dean acts first for student/employee applications, then OSA). The swim-lane layout makes it visually clear where handoffs occur and which actor is responsible at each status transition.
+
+##### Dean Workflow Analysis
+
+The Dean logs in via OTP, with their email matched against the `department` table (not the `user` table — Deans are institutional accounts, not applicants). Their portal at `/dean` is automatically scoped: the query filters applications by `department_id = locals.user.department_id`, so a Dean from the College of Engineering can never see applications from the College of Nursing. This is a query-level enforcement, not just a UI filter — even a direct API call with a Dean's session cookie cannot retrieve another department's data.
+
+The Dean has four possible actions:
+
+- **Accept** (`dept_val → osa_val`): Stamps `dept_val_at = NOW()` and forwards to OSA. An email is sent to the applicant.
+- **Reject** (`dept_val → rejected`): Requires a written reason stored in `invalid_reason`. Sends an email. The application is closed.
+- **Revoke** (`osa_val → revoked`): A Dean can revoke after forwarding to OSA but before OSA has validated. This is a correction window — if the Dean realizes they approved an incorrect application, they can pull it back even after forwarding. Requires a reason.
+- **Retract** (`osa_val or rejected → dept_val`): Resets the application to its pre-Dean-decision state, clearing all timestamps. This is an undo action for mistakes.
+
+##### OSA Admin Workflow Analysis
+
+The OSA Admin has the broadest action set in the system — eight distinct operations across multiple status states. Their identity is resolved entirely from `OSA_EMAIL` in `.env`, so no database record is needed for the OSA account to exist.
+
+The most consequential action is **Accept** (`osa_val → osa_dist`), which requires a `schedule` date parameter and triggers QR code generation. The acceptance is deliberately gated behind a schedule field to prevent approvals from being issued without a corresponding pickup appointment — ensuring the physical sticker distribution is always coordinated.
+
+**Deliver** (`osa_dist` with `osa_dist_at = NULL → osa_dist` with `osa_dist_at = NOW()`) is a separate step from Accept precisely because of the gate controller's two-condition check. The two-step design creates a window between "approved" and "active" that gives OSA control over exactly when a vehicle gains gate access — even after a QR code has been generated.
+
+**Revoke** and **Unrevoke** are post-distribution lifecycle management tools. Revoking sets `status = 'revoked'` and records the reason; unrevoking restores `status = 'osa_dist'` but is blocked if the registration has already expired (`expires_at < NOW()`), preventing the reactivation of stale access. **Delete** is a hard-delete that also removes all associated uploaded document files from the filesystem, ensuring no orphaned files accumulate in `/static/uploads/`.
+
+---
+
+#### 10.8.3 Raspberry Pi Gate Controller Workflow (main.py)
+
+![Raspberry Pi Gate Controller Workflow](diagrams/flowchart_rpi_gate.jpg)
+
+##### Overview
+
+The RPi gate controller flowchart is the most complex of the four because it documents a **concurrent state machine** — two independent gate sides (Entrance and Exit), each running the same logic simultaneously within a single OpenCV event loop. The flowchart shows both sides in parallel columns to make this concurrency explicit: a QR scan on the Entrance side and a QR scan on the Exit side are handled by separate `SideState` objects and separate background threads, with no shared mutable state between them.
+
+##### Startup and Background Polling
+
+When `main.py` starts, it performs four initialization steps before entering the main loop: it sets up the GPIO pin factory (lgpio), initializes two `AngularServo` objects on GPIO 13 and 19, probes up to 10 video device indices to find two working cameras, and spawns a background daemon thread that calls `GET /api/gate/stats` and `GET /api/gate/logs` every 5 seconds. The polling thread runs independently of the main loop — it updates global variables (`global_stats`, `global_logs`) that the dashboard rendering code reads on each frame. This architecture means the stats and logs display is always fresh without blocking the QR scan loop.
+
+##### QR Scan State Machine
+
+The state machine begins in `SCANNING`. On every frame, pyzbar attempts to decode QR codes from the camera crop. When a QR is found, the state immediately transitions to `PROCESSING` (blocking re-trigger), and a background thread is spawned to call `GET /api/gate/lookup?qr={code}`. Using a thread here is critical: the API call may take up to 5 seconds (with retries), and blocking the main loop would freeze the entire display and prevent the other gate side from scanning.
+
+The lookup response triggers a three-layer check:
+
+1. **HTTP status**: 404 → `INVALID_QR`; network error → `API_ERROR`; 200 → proceed.
+2. **Same-day log anomaly**: If the vehicle was already logged IN today and is scanning IN again (or already OUT and scanning OUT again), the state transitions to `LOG_WARNING`. The guard must consciously override with `PROCEED ANYWAY`. This prevents accidental duplicate entries caused by a vehicle sitting in front of the camera too long or a guard triggering the scan twice.
+3. **Registration status**: If `status != 'osa_dist'` or `osa_dist_at IS NULL`, the state transitions to `STATUS_WARNING`. For the **Entrance** side, this requires an additional step — `STATUS_REASON` — where the guard must type a written exception reason before the gate opens. For the **Exit** side, no reason is required (the guard confirms directly), reflecting the operational reality that vehicles already inside must be able to exit regardless of status.
+
+##### Gate Open/Close Mechanics
+
+Once confirmed, `submit_entry_exit()` posts to `/api/gate/entry` or `/api/gate/exit` with the `registration_id`, a base64-encoded JPEG snapshot from the camera at scan time (`pic_base64`), and the `logged_status`. The server writes the `Vehicle_Log` row and returns 200 OK, at which point the RPi activates the servo: `set_servo_angle(servo, 90)` in a dedicated thread. After 1 second (to allow the servo to reach position), the PWM signal is released (`servo.angle = None`) to prevent the servo from buzzing at the held position. The gate state moves to `TIMEOUT` with a 10-second countdown, then `close_gate()` sweeps back to 0° and returns to `SCANNING`.
+
+##### Manual Entry Paths
+
+The `MANUAL_TYPE` state is reachable from `SCANNING` (guard button), `INVALID_QR`, and `API_ERROR`, giving the guard a fallback path whenever QR scanning is not possible. From `MANUAL_TYPE`, three sub-paths are available: **REG ID** (guard types a registration ID and it runs through the same `process_qr` logic as a QR scan), **GUEST** (guard enters vehicle details and a ticket number is generated for IN events, or matched for OUT events via `POST /api/gate/manual`), and **VIP** (calls `POST /api/gate/vip` which logs the event without checking any registration). The `CAMPUS_FULL` state intercepts the IN-side scanning loop when `currentlyIn >= maxCapacity`, preventing vehicle entries until capacity clears or a guard manually overrides.
+
+---
+
+#### 10.8.4 Security Guard Workflow
+
+![Security Guard Workflow](diagrams/flowchart_security.jpg)
+
+##### Overview
+
+The Security Guard is the only human actor whose entire system interaction is **read-only** with respect to registration data. The flowchart reflects this: every branch terminates in observation or offline action, never in a database write to the `registration` table. This is not a UI limitation — it is enforced at the API layer. The `security` role is checked server-side in every route handler, and any attempt to call OSA-level actions (approve, reject, revoke) with a security session cookie returns a `403 Unauthorized` response.
+
+##### Authentication and Route Access
+
+The Security Guard's email is stored in `SECURITY_EMAIL` in `.env` — like the OSA Admin, the security account has no database row. On OTP login, the server checks the verified email against `SECURITY_EMAIL` in memory and encodes `role = 'security'` into the JWT. The `hooks.server.ts` middleware then permits access to `/osa/dashboard`, `/osa/complaints`, and `/monitor`, while blocking all other `/osa/*` sub-routes (such as `/osa/departments` or the QR distribution panels). The route guard uses a prefix match, so adding new OSA-only routes in the future automatically excludes the Security role without any additional configuration.
+
+##### Live Monitoring (/monitor)
+
+The `/monitor` page is the Security Guard's primary operational interface. It aggregates data from two sources: the `GET /api/gate/stats` endpoint (returning `currentlyIn`, `visitsToday`, and `maxCapacity`) and `GET /api/gate/logs` (returning the recent vehicle log rows). Critically, this is the same data the Raspberry Pi dashboard displays — both the physical gate screen and the security office browser are reading the same API endpoints, ensuring consistency between what the guard at the gate sees and what the security officer inside sees. The page provides situational awareness: how full is the campus, which vehicles entered and exited today, and whether any anomalies occurred (visible from `logged_status` values in the log table).
+
+##### Complaints Management (/osa/complaints)
+
+The security role has a broader view of the complaints system than applicants do. While `GET /api/complaints` returns only the calling user's own complaints for applicants, the same endpoint detects `role = 'security'` and returns all complaints from all users, joined with their `user` and `registration` profile data. This allows the security office to see the full complaint queue and cross-reference the complainant's vehicle registration status.
+
+However, the Security Guard cannot take any in-system resolution action. There is no "mark as resolved" or "close complaint" button for the security role — complaint management is handled offline (phone, email, physical intervention). The only in-system deletion action on a complaint is by the complaint's owner (the applicant who filed it), and only while the complaint is still unread. This design prevents security staff from silently suppressing complaints before they are addressed, creating an implicit accountability trail.
+
+##### What Security Cannot Do
+
+The constraints noted in the flowchart are not merely UI reminders — they reflect hard enforcement boundaries in the API:
+
+- `POST /api/osa/applications` with `action=accept/reject/revoke` → `403` if `role !== 'osa'`
+- `POST /api/departments` (CRUD) → `403` if `role !== 'osa'`
+- `DELETE /api/complaints/:id` → `403` unless the session email matches `complaint.user_email`
+- All gate endpoints (`/api/gate/*`) → `401` unless the `X-Gate-Key` header is present (human sessions cannot call gate APIs at all)
+
+This layered enforcement means the Security role is robustly least-privilege — its read-only status cannot be circumvented by crafting API requests directly.
 
 ---
 
